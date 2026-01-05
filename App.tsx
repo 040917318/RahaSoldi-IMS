@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Package, ShoppingCart, BrainCircuit, Menu, X, History, Wifi, WifiOff, Loader2, DollarSign, PieChart, Truck, LogOut, Shield } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, BrainCircuit, Menu, X, History, Wifi, WifiOff, Loader2, PieChart, Truck, LogOut, Shield } from 'lucide-react';
 import { InventoryManager } from './components/InventoryManager';
 import { SalesTerminal } from './components/SalesTerminal';
 import { Dashboard } from './components/Dashboard';
@@ -10,9 +10,26 @@ import { ExpensesManager } from './components/ExpensesManager';
 import { FinancialReport } from './components/FinancialReport';
 import { PurchaseOrdersManager } from './components/PurchaseOrdersManager';
 import { Auth } from './components/Auth';
-import { InventoryItem, SaleRecord, SaleItem, ViewState, ExpenseRecord, PurchaseOrder, UserRole } from './types';
+import { InventoryItem, SaleRecord, SaleItem, ViewState, ExpenseRecord, PurchaseOrder, UserRole, AuditLog } from './types';
 import { supabase } from './services/supabaseClient';
 import { Session } from '@supabase/supabase-js';
+
+// Custom Cedi Icon Component
+const CediSign = ({ className }: { className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <path d="M16 7a6 6 0 1 0 0 10" />
+    <path d="M10 3v18" />
+  </svg>
+);
 
 const App: React.FC = () => {
   // Auth State
@@ -30,6 +47,7 @@ const App: React.FC = () => {
   const [sales, setSales] = useState<SaleRecord[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
   // Connectivity Listeners
   useEffect(() => {
@@ -104,7 +122,11 @@ const App: React.FC = () => {
       } else if (poData) {
          setPurchaseOrders(poData);
       }
-
+      
+      // Fetch Audit Logs (Simulated for this demo as we can't create new tables in this environment)
+      // In a real app: const { data: logData } = await supabase.from('audit_logs').select('*');
+      // For now, we keep auditLogs in local state but don't overwrite it on fetch to maintain history during session
+      
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -119,6 +141,29 @@ const App: React.FC = () => {
     }
   }, [session]);
 
+  // Helper: Create Audit Log
+  const logAction = (
+    itemId: string, 
+    itemName: string, 
+    action: AuditLog['action'], 
+    details: string
+  ) => {
+    if (!session?.user) return;
+
+    const newLog: AuditLog = {
+      id: crypto.randomUUID(),
+      itemId,
+      itemName,
+      action,
+      details,
+      userId: session.user.email || 'Unknown User',
+      timestamp: new Date().toISOString()
+    };
+    
+    setAuditLogs(prev => [newLog, ...prev]);
+    // In real app: await supabase.from('audit_logs').insert([newLog]);
+  };
+
   // Handlers
   const handleAddItem = async (item: Omit<InventoryItem, 'id' | 'lastUpdated'>) => {
     const newItem: InventoryItem = {
@@ -129,6 +174,7 @@ const App: React.FC = () => {
 
     // Optimistic Update
     setInventory(prev => [...prev, newItem]);
+    logAction(newItem.id, newItem.name, 'create', `Item created. Initial Stock: ${newItem.quantity}`);
 
     try {
       const { error } = await supabase.from('inventory').insert([newItem]);
@@ -141,8 +187,22 @@ const App: React.FC = () => {
   };
 
   const handleUpdateItem = async (id: string, updates: Partial<InventoryItem>) => {
+    const oldItem = inventory.find(i => i.id === id);
+    if (!oldItem) return;
+
     const updatedTimestamp = new Date().toISOString();
     const finalUpdates = { ...updates, lastUpdated: updatedTimestamp };
+
+    // Determine what changed for the log
+    if (updates.quantity !== undefined && updates.quantity !== oldItem.quantity) {
+       logAction(id, oldItem.name, 'adjustment', `Stock adjusted from ${oldItem.quantity} to ${updates.quantity}`);
+    }
+    if (updates.costPrice !== undefined && updates.costPrice !== oldItem.costPrice) {
+       logAction(id, oldItem.name, 'update', `Cost price changed from ${oldItem.costPrice} to ${updates.costPrice}`);
+    }
+    if (updates.salesPrice !== undefined && updates.salesPrice !== oldItem.salesPrice) {
+       logAction(id, oldItem.name, 'update', `Sales price changed from ${oldItem.salesPrice} to ${updates.salesPrice}`);
+    }
 
     // Optimistic Update
     setInventory(prev => prev.map(item => item.id === id ? { ...item, ...finalUpdates } : item));
@@ -178,7 +238,12 @@ const App: React.FC = () => {
   };
 
   const handleCompleteSale = async (items: SaleItem[]) => {
-    const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.priceAtSale), 0);
+    // Calculate total amount considering discounts
+    const totalAmount = items.reduce((sum, item) => 
+      sum + ((item.quantity * item.priceAtSale) - (item.discount || 0)), 0
+    );
+    
+    // Total cost is purely COGS
     const totalCost = items.reduce((sum, item) => sum + (item.quantity * item.costAtSale), 0);
     
     const newSale: SaleRecord = {
@@ -194,11 +259,16 @@ const App: React.FC = () => {
     items.forEach(saleItem => {
       const productIndex = newInventory.findIndex(p => p.id === saleItem.itemId);
       if (productIndex > -1) {
+        const oldQty = newInventory[productIndex].quantity;
+        const newQty = oldQty - saleItem.quantity;
+        
         newInventory[productIndex] = {
             ...newInventory[productIndex],
-            quantity: newInventory[productIndex].quantity - saleItem.quantity,
+            quantity: newQty,
             lastUpdated: new Date().toISOString()
         };
+        
+        logAction(saleItem.itemId, saleItem.name, 'sale', `Sold ${saleItem.quantity} units. Stock: ${oldQty} -> ${newQty}`);
       }
     });
 
@@ -309,6 +379,8 @@ const App: React.FC = () => {
                quantity: newQty,
                lastUpdated: new Date().toISOString()
              };
+             
+             logAction(item.itemId, item.name, 'restock', `PO Received (${po.supplier}). Added ${item.quantity} units. Stock: ${currentInv.quantity} -> ${newQty}`);
 
              // Update Database
              await supabase
@@ -384,7 +456,7 @@ const App: React.FC = () => {
           {userRole === 'admin' && (
             <>
               <NavItem view="purchases" icon={Truck} label="Purchase Orders" />
-              <NavItem view="expenses" icon={DollarSign} label="Expenses" />
+              <NavItem view="expenses" icon={CediSign} label="Expenses" />
               <NavItem view="financials" icon={PieChart} label="Financial Reports" />
               <NavItem view="insights" icon={BrainCircuit} label="AI Insights" />
             </>
@@ -431,7 +503,7 @@ const App: React.FC = () => {
           {userRole === 'admin' && (
             <>
               <NavItem view="purchases" icon={Truck} label="Purchase Orders" />
-              <NavItem view="expenses" icon={DollarSign} label="Expenses" />
+              <NavItem view="expenses" icon={CediSign} label="Expenses" />
               <NavItem view="financials" icon={PieChart} label="Financial Reports" />
               <NavItem view="insights" icon={BrainCircuit} label="AI Insights" />
             </>
@@ -489,10 +561,10 @@ const App: React.FC = () => {
              ) : (
                 <>
                     {activeView === 'dashboard' && <Dashboard inventory={inventory} sales={sales} currencySymbol="GH₵" userRole={userRole} />}
-                    {activeView === 'inventory' && <InventoryManager inventory={inventory} onAdd={handleAddItem} onUpdate={handleUpdateItem} onDelete={handleDeleteItem} currencySymbol="GH₵" userRole={userRole} />}
+                    {activeView === 'inventory' && <InventoryManager inventory={inventory} onAdd={handleAddItem} onUpdate={handleUpdateItem} onDelete={handleDeleteItem} currencySymbol="GH₵" userRole={userRole} auditLogs={auditLogs} />}
                     {activeView === 'pos' && <SalesTerminal inventory={inventory} onCompleteSale={handleCompleteSale} currencySymbol="GH₵" />}
                     {activeView === 'history' && <SalesHistory sales={sales} currencySymbol="GH₵" />}
-                    {userRole === 'admin' && activeView === 'expenses' && <ExpensesManager expenses={expenses} onAdd={handleAddExpense} onDelete={handleDeleteExpense} currencySymbol="GH₵" />}
+                    {userRole === 'admin' && activeView === 'expenses' && <ExpensesManager expenses={expenses} onAdd={handleAddExpense} currencySymbol="GH₵" />}
                     {userRole === 'admin' && activeView === 'financials' && <FinancialReport inventory={inventory} sales={sales} expenses={expenses} currencySymbol="GH₵" />}
                     {userRole === 'admin' && activeView === 'insights' && <AIInsights inventory={inventory} sales={sales} />}
                     {userRole === 'admin' && activeView === 'purchases' && (

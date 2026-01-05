@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { InventoryItem, SaleRecord, UserRole } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { DollarSign, Package, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Package, TrendingUp, AlertTriangle } from 'lucide-react';
 
 interface DashboardProps {
   inventory: InventoryItem[];
@@ -10,6 +10,23 @@ interface DashboardProps {
   currencySymbol: string;
   userRole: UserRole;
 }
+
+// Custom Cedi Icon Component
+const CediSign = ({ className }: { className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <path d="M16 7a6 6 0 1 0 0 10" />
+    <path d="M10 3v18" />
+  </svg>
+);
 
 export const Dashboard: React.FC<DashboardProps> = ({ inventory, sales, currencySymbol, userRole }) => {
   
@@ -100,7 +117,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ inventory, sales, currency
         <StatCard 
           title="Total Revenue" 
           value={`${currencySymbol}${metrics.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} 
-          icon={DollarSign} 
+          icon={CediSign} 
           color="bg-green-500" 
           subtext="Lifetime sales"
         />

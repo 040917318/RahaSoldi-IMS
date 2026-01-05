@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { InventoryItem, SaleItem } from '../types';
-import { ShoppingCart, Plus, Trash2, CheckCircle, Search } from 'lucide-react';
+import { ShoppingCart, Plus, Trash2, CheckCircle, Search, Tag } from 'lucide-react';
 
 interface SalesTerminalProps {
   inventory: InventoryItem[];
@@ -58,7 +59,8 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
             name: selectedProduct.name,
             quantity: qtyInput,
             priceAtSale: selectedProduct.salesPrice,
-            costAtSale: selectedProduct.costPrice
+            costAtSale: selectedProduct.costPrice,
+            discount: 0
         };
         setCart([...cart, newItem]);
     }
@@ -75,6 +77,19 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
     setCart(newCart);
   };
 
+  const updateDiscount = (index: number, discount: number) => {
+    const newCart = [...cart];
+    const item = newCart[index];
+    const maxDiscount = item.quantity * item.priceAtSale;
+    
+    // Validate discount is positive and doesn't exceed total price
+    if (discount < 0) discount = 0;
+    if (discount > maxDiscount) discount = maxDiscount;
+    
+    newCart[index].discount = discount;
+    setCart(newCart);
+  };
+
   const handleCheckout = () => {
     if (cart.length === 0) return;
     onCompleteSale(cart);
@@ -82,7 +97,7 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
     setSuccessMsg('Sale recorded successfully!');
   };
 
-  const cartTotal = cart.reduce((acc, item) => acc + (item.quantity * item.priceAtSale), 0);
+  const cartTotal = cart.reduce((acc, item) => acc + (item.quantity * item.priceAtSale) - (item.discount || 0), 0);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-140px)]">
@@ -184,18 +199,35 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
             </div>
           ) : (
             cart.map((item, index) => (
-              <div key={index} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <div>
-                  <div className="font-medium text-slate-800">{item.name}</div>
-                  <div className="text-sm text-slate-500">{item.quantity} x {currencySymbol}{item.priceAtSale.toFixed(2)}</div>
-                </div>
-                <div className="flex items-center">
-                  <span className="font-bold text-slate-800 mr-4">
-                    {currencySymbol}{(item.quantity * item.priceAtSale).toFixed(2)}
-                  </span>
+              <div key={index} className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <div className="font-medium text-slate-800">{item.name}</div>
+                    <div className="text-sm text-slate-500">{item.quantity} x {currencySymbol}{item.priceAtSale.toFixed(2)}</div>
+                  </div>
                   <button onClick={() => removeFromCart(index)} className="text-red-400 hover:text-red-600 transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
+                </div>
+                
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200">
+                    {/* Discount Input */}
+                    <div className="flex items-center space-x-2">
+                         <Tag className="w-3 h-3 text-slate-400" />
+                         <input 
+                            type="number"
+                            min="0"
+                            placeholder="Discount"
+                            className="w-20 text-xs p-1 border border-slate-300 rounded focus:ring-1 focus:ring-primary focus:outline-none"
+                            value={item.discount || ''}
+                            onChange={(e) => updateDiscount(index, parseFloat(e.target.value) || 0)}
+                         />
+                         {item.discount ? <span className="text-xs text-red-500">-{currencySymbol}{item.discount}</span> : null}
+                    </div>
+
+                    <div className="font-bold text-slate-800">
+                        {currencySymbol}{((item.quantity * item.priceAtSale) - (item.discount || 0)).toFixed(2)}
+                    </div>
                 </div>
               </div>
             ))

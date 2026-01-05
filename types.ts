@@ -16,6 +16,7 @@ export interface SaleItem {
   quantity: number;
   priceAtSale: number;
   costAtSale: number;
+  discount?: number;
 }
 
 export interface SaleRecord {
@@ -50,6 +51,16 @@ export interface PurchaseOrder {
   items: PurchaseOrderItem[];
   totalCost: number;
   notes?: string;
+}
+
+export interface AuditLog {
+  id: string;
+  itemId: string;
+  itemName: string;
+  action: 'create' | 'update' | 'adjustment' | 'sale' | 'restock';
+  details: string;
+  userId: string;
+  timestamp: string;
 }
 
 export type ViewState = 'dashboard' | 'inventory' | 'pos' | 'history' | 'expenses' | 'financials' | 'insights' | 'purchases';

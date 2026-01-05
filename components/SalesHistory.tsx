@@ -192,6 +192,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
                                 <tr>
                                     <th className="px-4 py-2 text-left text-xs font-bold text-slate-500">Item</th>
                                     <th className="px-4 py-2 text-right text-xs font-bold text-slate-500">Qty</th>
+                                    <th className="px-4 py-2 text-right text-xs font-bold text-slate-500">Discount</th>
                                     <th className="px-4 py-2 text-right text-xs font-bold text-slate-500">Total</th>
                                 </tr>
                             </thead>
@@ -200,8 +201,11 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
                                     <tr key={idx}>
                                         <td className="px-4 py-2 text-sm text-slate-800">{item.name}</td>
                                         <td className="px-4 py-2 text-sm text-slate-600 text-right">{item.quantity}</td>
+                                        <td className="px-4 py-2 text-sm text-red-500 text-right">
+                                            {item.discount ? `-${currencySymbol}${item.discount}` : '-'}
+                                        </td>
                                         <td className="px-4 py-2 text-sm text-slate-800 font-medium text-right">
-                                            {currencySymbol}{(item.quantity * item.priceAtSale).toFixed(2)}
+                                            {currencySymbol}{((item.quantity * item.priceAtSale) - (item.discount || 0)).toFixed(2)}
                                         </td>
                                     </tr>
                                 ))}
