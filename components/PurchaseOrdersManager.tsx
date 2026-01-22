@@ -284,7 +284,7 @@ export const PurchaseOrdersManager: React.FC<PurchaseOrdersManagerProps> = ({
                                         <span className="text-xl">&times;</span>
                                     </button>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4 mb-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
                                     <div>
                                         <label className="block text-xs font-medium text-blue-800 mb-1">Quantity</label>
                                         <input 

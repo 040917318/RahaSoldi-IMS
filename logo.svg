@@ -1,0 +1,45 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 100">
+  <defs>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e3a8a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2563eb;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="silverGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#94a3b8;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#cbd5e1;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+  
+  <!-- Icon Group -->
+  <g transform="translate(10, 10)">
+    <!-- Hexagon Base Structure -->
+    <path d="M40 0 L74.6 20 L74.6 60 L40 80 L5.4 60 L5.4 20 Z" fill="none" stroke="#1e3a8a" stroke-width="0" />
+
+    <!-- Interlocking Ribbon Segments simulating the 3D cube/hexagon -->
+    <!-- Left Segment (Dark Blue) -->
+    <path d="M40 40 L5.4 60 L5.4 20 L40 0 L40 40" fill="#1e3a8a" filter="url(#shadow)"/>
+    
+    <!-- Right Segment (Silver/Grey) -->
+    <path d="M40 40 L74.6 20 L74.6 60 L40 80 L40 40" fill="url(#silverGrad)" filter="url(#shadow)"/>
+    
+    <!-- Top Overlay Segment (Lighter Blue gradient) -->
+    <path d="M40 40 L74.6 20 L40 0 L5.4 20 L40 40" fill="url(#blueGrad)" opacity="0.9" />
+    
+    <!-- Inner geometric accent lines -->
+    <path d="M40 40 L40 80" stroke="#cbd5e1" stroke-width="2" opacity="0.5"/>
+    <path d="M40 40 L5.4 20" stroke="#cbd5e1" stroke-width="2" opacity="0.5"/>
+    <path d="M40 40 L74.6 20" stroke="#1e3a8a" stroke-width="2" opacity="0.3"/>
+  </g>
+  
+  <!-- Text Group -->
+  <g transform="translate(95, 62)">
+    <text font-family="Arial, sans-serif" font-weight="bold" font-size="38" fill="#1e3a8a">Raha Soldi</text>
+    <text x="210" font-family="Arial, sans-serif" font-weight="bold" font-size="38" fill="#94a3b8">Ent.</text>
+    <!-- Underline -->
+    <rect x="2" y="10" width="280" height="3" fill="#1e3a8a" />
+  </g>
+</svg>

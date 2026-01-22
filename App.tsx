@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Package, ShoppingCart, BrainCircuit, Menu, X, History, Wifi, WifiOff, Loader2, PieChart, Truck, LogOut, Shield } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, BrainCircuit, Menu, X, History, Wifi, WifiOff, Loader2, PieChart, Truck, LogOut, Shield, RefreshCw } from 'lucide-react';
 import { InventoryManager } from './components/InventoryManager';
 import { SalesTerminal } from './components/SalesTerminal';
 import { Dashboard } from './components/Dashboard';
@@ -41,6 +41,10 @@ const App: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  
+  // Offline / Sync State
+  const [pendingActions, setPendingActions] = useState<number>(0);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Data State
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -72,60 +76,172 @@ const App: React.FC = () => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      // Reset view to dashboard on login
       if (session) setActiveView('dashboard');
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  // Load Cached Data on Mount
+  useEffect(() => {
+    const loadLocal = (key: string, setter: any) => {
+        const local = localStorage.getItem(key);
+        if(local) setter(JSON.parse(local));
+    };
+    loadLocal('inventory', setInventory);
+    loadLocal('sales', setSales);
+    loadLocal('expenses', setExpenses);
+    loadLocal('purchaseOrders', setPurchaseOrders);
+    
+    // Check pending actions
+    const queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+    setPendingActions(queue.length);
+  }, []);
+
+  // Persist Helper
+  const persist = (key: string, data: any) => {
+      localStorage.setItem(key, JSON.stringify(data));
+  };
+
+  // Queue Action Helper
+  const queueAction = (action: any) => {
+    const queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+    queue.push(action);
+    localStorage.setItem('offlineQueue', JSON.stringify(queue));
+    setPendingActions(queue.length);
+  };
+
+  // Process Offline Queue (Sync)
+  const processOfflineQueue = async () => {
+    if (isSyncing) return;
+    
+    const queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+    if (queue.length === 0) return;
+
+    setIsSyncing(true);
+    const newQueue = [...queue];
+
+    try {
+        while (newQueue.length > 0) {
+            const action = newQueue[0];
+            let success = false;
+
+            try {
+                switch (action.type) {
+                    case 'ADD_ITEM':
+                        await supabase.from('inventory').insert([action.payload]);
+                        break;
+                    case 'UPDATE_ITEM':
+                        await supabase.from('inventory').update(action.payload.updates).eq('id', action.payload.id);
+                        break;
+                    case 'DELETE_ITEM':
+                        await supabase.from('inventory').delete().eq('id', action.payload.id);
+                        break;
+                    case 'SALE':
+                        const { sale, items } = action.payload;
+                        const { error: saleErr } = await supabase.from('sales').insert([sale]);
+                        if(saleErr) throw saleErr;
+                        
+                        for (const item of items) {
+                             const { data: curr } = await supabase.from('inventory').select('quantity').eq('id', item.itemId).single();
+                             if(curr) {
+                                 await supabase.from('inventory').update({ 
+                                     quantity: curr.quantity - item.quantity,
+                                     lastUpdated: new Date().toISOString()
+                                 }).eq('id', item.itemId);
+                             }
+                        }
+                        break;
+                    case 'ADD_EXPENSE':
+                        await supabase.from('expenses').insert([action.payload]);
+                        break;
+                    case 'DELETE_EXPENSE':
+                        await supabase.from('expenses').delete().eq('id', action.payload.id);
+                        break;
+                    case 'CREATE_PO':
+                         await supabase.from('purchase_orders').insert([action.payload]);
+                         break;
+                    case 'UPDATE_PO_STATUS':
+                        const { id, status, po } = action.payload;
+                        await supabase.from('purchase_orders').update({ status }).eq('id', id);
+                        if (status === 'received' && po.status !== 'received') {
+                             for (const item of po.items) {
+                                 const { data: curr } = await supabase.from('inventory').select('quantity').eq('id', item.itemId).single();
+                                 if(curr) {
+                                     await supabase.from('inventory').update({
+                                         quantity: curr.quantity + item.quantity,
+                                         lastUpdated: new Date().toISOString()
+                                     }).eq('id', item.itemId);
+                                 }
+                             }
+                        }
+                        break;
+                }
+                success = true;
+            } catch (err) {
+                console.error("Error syncing action:", action, err);
+                // If permanent error, maybe remove? For now, we abort sync loop
+                break;
+            }
+
+            if (success) {
+                newQueue.shift();
+                localStorage.setItem('offlineQueue', JSON.stringify(newQueue));
+                setPendingActions(newQueue.length);
+            }
+        }
+    } finally {
+        setIsSyncing(false);
+        if (newQueue.length === 0) fetchData(); // Refresh data after successful sync
+    }
+  };
+
+  // Trigger Sync when Online
+  useEffect(() => {
+    if (isOnline && pendingActions > 0 && !isSyncing) {
+        processOfflineQueue();
+    }
+  }, [isOnline, pendingActions]);
+
+
   // Fetch Data from Supabase
   const fetchData = async () => {
-    if (!session) return; // Don't fetch if not logged in
+    if (!session) return;
+    if (!isOnline) return; // Rely on cache if offline
 
     setLoading(true);
     try {
       // Fetch Inventory
-      const { data: invData, error: invError } = await supabase
-        .from('inventory')
-        .select('*');
-      
+      const { data: invData, error: invError } = await supabase.from('inventory').select('*');
       if (invError) throw invError;
-      if (invData) setInventory(invData);
+      if (invData) {
+          setInventory(invData);
+          persist('inventory', invData);
+      }
 
       // Fetch Sales
-      const { data: salesData, error: salesError } = await supabase
-        .from('sales')
-        .select('*')
-        .order('timestamp', { ascending: false });
-
+      const { data: salesData, error: salesError } = await supabase.from('sales').select('*').order('timestamp', { ascending: false });
       if (salesError) throw salesError;
-      if (salesData) setSales(salesData);
+      if (salesData) {
+          setSales(salesData);
+          persist('sales', salesData);
+      }
 
       // Fetch Expenses
-      const { data: expData, error: expError } = await supabase
-        .from('expenses')
-        .select('*')
-        .order('date', { ascending: false });
-
+      const { data: expData, error: expError } = await supabase.from('expenses').select('*').order('date', { ascending: false });
       if (expError) throw expError;
-      if (expData) setExpenses(expData);
+      if (expData) {
+          setExpenses(expData);
+          persist('expenses', expData);
+      }
 
       // Fetch Purchase Orders
-      const { data: poData, error: poError } = await supabase
-        .from('purchase_orders')
-        .select('*')
-        .order('date', { ascending: false });
-
-      if (poError) {
-         console.warn("Could not fetch purchase orders. Table might not exist yet.");
-      } else if (poData) {
-         setPurchaseOrders(poData);
+      const { data: poData, error: poError } = await supabase.from('purchase_orders').select('*').order('date', { ascending: false });
+      if (poError) console.warn("Could not fetch POs");
+      else if (poData) {
+          setPurchaseOrders(poData);
+          persist('purchaseOrders', poData);
       }
-      
-      // Fetch Audit Logs (Simulated for this demo as we can't create new tables in this environment)
-      // In a real app: const { data: logData } = await supabase.from('audit_logs').select('*');
-      // For now, we keep auditLogs in local state but don't overwrite it on fetch to maintain history during session
       
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -134,22 +250,12 @@ const App: React.FC = () => {
     }
   };
 
-  // Fetch data when session becomes available
   useEffect(() => {
-    if (session) {
-      fetchData();
-    }
+    if (session) fetchData();
   }, [session]);
 
-  // Helper: Create Audit Log
-  const logAction = (
-    itemId: string, 
-    itemName: string, 
-    action: AuditLog['action'], 
-    details: string
-  ) => {
+  const logAction = (itemId: string, itemName: string, action: AuditLog['action'], details: string) => {
     if (!session?.user) return;
-
     const newLog: AuditLog = {
       id: crypto.randomUUID(),
       itemId,
@@ -159,30 +265,33 @@ const App: React.FC = () => {
       userId: session.user.email || 'Unknown User',
       timestamp: new Date().toISOString()
     };
-    
     setAuditLogs(prev => [newLog, ...prev]);
-    // In real app: await supabase.from('audit_logs').insert([newLog]);
   };
 
-  // Handlers
+  // Handlers with Offline Support
   const handleAddItem = async (item: Omit<InventoryItem, 'id' | 'lastUpdated'>) => {
     const newItem: InventoryItem = {
       ...item,
-      id: crypto.randomUUID(), // Generate UUID
+      id: crypto.randomUUID(),
       lastUpdated: new Date().toISOString()
     };
 
-    // Optimistic Update
-    setInventory(prev => [...prev, newItem]);
+    const newInventory = [...inventory, newItem];
+    setInventory(newInventory);
+    persist('inventory', newInventory);
     logAction(newItem.id, newItem.name, 'create', `Item created. Initial Stock: ${newItem.quantity}`);
+
+    if (!isOnline) {
+        queueAction({ type: 'ADD_ITEM', payload: newItem });
+        return;
+    }
 
     try {
       const { error } = await supabase.from('inventory').insert([newItem]);
       if (error) throw error;
     } catch (err) {
       console.error("Error adding item:", err);
-      alert("Failed to save item to database.");
-      fetchData(); // Revert on error
+      // Fallback behavior could be added here
     }
   };
 
@@ -193,57 +302,49 @@ const App: React.FC = () => {
     const updatedTimestamp = new Date().toISOString();
     const finalUpdates = { ...updates, lastUpdated: updatedTimestamp };
 
-    // Determine what changed for the log
     if (updates.quantity !== undefined && updates.quantity !== oldItem.quantity) {
        logAction(id, oldItem.name, 'adjustment', `Stock adjusted from ${oldItem.quantity} to ${updates.quantity}`);
     }
-    if (updates.costPrice !== undefined && updates.costPrice !== oldItem.costPrice) {
-       logAction(id, oldItem.name, 'update', `Cost price changed from ${oldItem.costPrice} to ${updates.costPrice}`);
-    }
-    if (updates.salesPrice !== undefined && updates.salesPrice !== oldItem.salesPrice) {
-       logAction(id, oldItem.name, 'update', `Sales price changed from ${oldItem.salesPrice} to ${updates.salesPrice}`);
-    }
 
-    // Optimistic Update
-    setInventory(prev => prev.map(item => item.id === id ? { ...item, ...finalUpdates } : item));
+    const updatedInventory = inventory.map(item => item.id === id ? { ...item, ...finalUpdates } : item);
+    setInventory(updatedInventory);
+    persist('inventory', updatedInventory);
+
+    if (!isOnline) {
+        queueAction({ type: 'UPDATE_ITEM', payload: { id, updates: finalUpdates } });
+        return;
+    }
 
     try {
-      const { error } = await supabase
-        .from('inventory')
-        .update(finalUpdates)
-        .eq('id', id);
-
+      const { error } = await supabase.from('inventory').update(finalUpdates).eq('id', id);
       if (error) throw error;
     } catch (err) {
       console.error("Error updating item:", err);
-      alert("Failed to update item in database.");
-      fetchData(); // Revert
     }
   };
 
   const handleDeleteItem = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this item?')) {
-      // Optimistic Update
-      setInventory(prev => prev.filter(item => item.id !== id));
+      const updatedInventory = inventory.filter(item => item.id !== id);
+      setInventory(updatedInventory);
+      persist('inventory', updatedInventory);
+
+      if (!isOnline) {
+          queueAction({ type: 'DELETE_ITEM', payload: { id } });
+          return;
+      }
 
       try {
         const { error } = await supabase.from('inventory').delete().eq('id', id);
         if (error) throw error;
       } catch (err) {
         console.error("Error deleting item:", err);
-        alert("Failed to delete item from database.");
-        fetchData(); // Revert
       }
     }
   };
 
   const handleCompleteSale = async (items: SaleItem[]) => {
-    // Calculate total amount considering discounts
-    const totalAmount = items.reduce((sum, item) => 
-      sum + ((item.quantity * item.priceAtSale) - (item.discount || 0)), 0
-    );
-    
-    // Total cost is purely COGS
+    const totalAmount = items.reduce((sum, item) => sum + ((item.quantity * item.priceAtSale) - (item.discount || 0)), 0);
     const totalCost = items.reduce((sum, item) => sum + (item.quantity * item.costAtSale), 0);
     
     const newSale: SaleRecord = {
@@ -254,97 +355,107 @@ const App: React.FC = () => {
       timestamp: new Date().toISOString()
     };
 
-    // Optimistic Update for UI
+    // Update Local Inventory & Sales
     const newInventory = [...inventory];
     items.forEach(saleItem => {
       const productIndex = newInventory.findIndex(p => p.id === saleItem.itemId);
       if (productIndex > -1) {
         const oldQty = newInventory[productIndex].quantity;
         const newQty = oldQty - saleItem.quantity;
-        
-        newInventory[productIndex] = {
-            ...newInventory[productIndex],
-            quantity: newQty,
-            lastUpdated: new Date().toISOString()
-        };
-        
+        newInventory[productIndex] = { ...newInventory[productIndex], quantity: newQty, lastUpdated: new Date().toISOString() };
         logAction(saleItem.itemId, saleItem.name, 'sale', `Sold ${saleItem.quantity} units. Stock: ${oldQty} -> ${newQty}`);
       }
     });
 
     setInventory(newInventory);
-    setSales(prev => [newSale, ...prev]);
+    persist('inventory', newInventory);
+    
+    const newSales = [newSale, ...sales];
+    setSales(newSales);
+    persist('sales', newSales);
+
+    if (!isOnline) {
+        queueAction({ type: 'SALE', payload: { sale: newSale, items } });
+        return;
+    }
 
     try {
-        // 1. Record Sale
         const { error: saleError } = await supabase.from('sales').insert([newSale]);
         if (saleError) throw saleError;
 
-        // 2. Update Inventory Quantities
         for (const item of items) {
-             const currentItem = inventory.find(i => i.id === item.itemId);
-             if (currentItem) {
-                 const newQty = currentItem.quantity - item.quantity;
-                 await supabase
-                    .from('inventory')
-                    .update({ quantity: newQty, lastUpdated: new Date().toISOString() })
-                    .eq('id', item.itemId);
+             // Fetch current DB quantity to prevent race conditions
+             const { data: curr } = await supabase.from('inventory').select('quantity').eq('id', item.itemId).single();
+             if (curr) {
+                 const newQty = curr.quantity - item.quantity;
+                 await supabase.from('inventory').update({ 
+                     quantity: newQty, 
+                     lastUpdated: new Date().toISOString() 
+                 }).eq('id', item.itemId);
              }
         }
     } catch (err) {
         console.error("Error processing sale:", err);
-        alert("Error saving sale to database. Please check connection.");
-        fetchData(); // Revert to server state
     }
   };
 
   const handleAddExpense = async (expense: Omit<ExpenseRecord, 'id' | 'recordedAt'>) => {
-    const newExpense: ExpenseRecord = {
-      ...expense,
-      id: crypto.randomUUID(),
-      recordedAt: new Date().toISOString()
-    };
+    const newExpense: ExpenseRecord = { ...expense, id: crypto.randomUUID(), recordedAt: new Date().toISOString() };
 
-    setExpenses(prev => [newExpense, ...prev]);
+    const newExpenses = [newExpense, ...expenses];
+    setExpenses(newExpenses);
+    persist('expenses', newExpenses);
+
+    if (!isOnline) {
+        queueAction({ type: 'ADD_EXPENSE', payload: newExpense });
+        return;
+    }
 
     try {
       const { error } = await supabase.from('expenses').insert([newExpense]);
       if (error) throw error;
     } catch (err) {
       console.error("Error adding expense:", err);
-      alert("Failed to save expense.");
-      fetchData();
     }
   };
 
   const handleDeleteExpense = async (id: string) => {
     if (window.confirm('Delete this expense record?')) {
-      setExpenses(prev => prev.filter(e => e.id !== id));
+      const newExpenses = expenses.filter(e => e.id !== id);
+      setExpenses(newExpenses);
+      persist('expenses', newExpenses);
+
+      if (!isOnline) {
+          queueAction({ type: 'DELETE_EXPENSE', payload: { id } });
+          return;
+      }
+
       try {
         const { error } = await supabase.from('expenses').delete().eq('id', id);
         if (error) throw error;
       } catch (err) {
         console.error("Error deleting expense:", err);
-        fetchData();
       }
     }
   };
 
   const handleCreatePO = async (po: Omit<PurchaseOrder, 'id'>) => {
-    const newPO: PurchaseOrder = {
-      ...po,
-      id: crypto.randomUUID(),
-    };
+    const newPO: PurchaseOrder = { ...po, id: crypto.randomUUID() };
 
-    setPurchaseOrders(prev => [newPO, ...prev]);
+    const newPOs = [newPO, ...purchaseOrders];
+    setPurchaseOrders(newPOs);
+    persist('purchaseOrders', newPOs);
+
+    if (!isOnline) {
+        queueAction({ type: 'CREATE_PO', payload: newPO });
+        return;
+    }
 
     try {
       const { error } = await supabase.from('purchase_orders').insert([newPO]);
       if (error) throw error;
     } catch (err) {
       console.error("Error creating PO:", err);
-      alert("Failed to save Purchase Order.");
-      fetchData();
     }
   };
 
@@ -352,50 +463,47 @@ const App: React.FC = () => {
     const po = purchaseOrders.find(p => p.id === id);
     if (!po) return;
 
-    // Optimistic Update
-    setPurchaseOrders(prev => prev.map(p => p.id === id ? { ...p, status } : p));
+    const newPOs = purchaseOrders.map(p => p.id === id ? { ...p, status } : p);
+    setPurchaseOrders(newPOs);
+    persist('purchaseOrders', newPOs);
 
-    try {
-      const { error } = await supabase
-        .from('purchase_orders')
-        .update({ status })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      // Logic: If marking as RECEIVED, update inventory stock
-      if (status === 'received' && po.status !== 'received') {
+    // Update Inventory Locally if Received
+    if (status === 'received' && po.status !== 'received') {
         const updatedInventory = [...inventory];
-        
         for (const item of po.items) {
            const invIndex = updatedInventory.findIndex(i => i.id === item.itemId);
            if (invIndex > -1) {
-             const currentInv = updatedInventory[invIndex];
-             const newQty = currentInv.quantity + item.quantity;
-             
-             // Update local state
              updatedInventory[invIndex] = {
-               ...currentInv,
-               quantity: newQty,
+               ...updatedInventory[invIndex],
+               quantity: updatedInventory[invIndex].quantity + item.quantity,
                lastUpdated: new Date().toISOString()
              };
-             
-             logAction(item.itemId, item.name, 'restock', `PO Received (${po.supplier}). Added ${item.quantity} units. Stock: ${currentInv.quantity} -> ${newQty}`);
-
-             // Update Database
-             await supabase
-               .from('inventory')
-               .update({ quantity: newQty, lastUpdated: new Date().toISOString() })
-               .eq('id', item.itemId);
+             logAction(item.itemId, item.name, 'restock', `PO Received. Added ${item.quantity}.`);
            }
         }
         setInventory(updatedInventory);
-      }
+        persist('inventory', updatedInventory);
+    }
 
+    if (!isOnline) {
+        queueAction({ type: 'UPDATE_PO_STATUS', payload: { id, status, po } });
+        return;
+    }
+
+    try {
+      const { error } = await supabase.from('purchase_orders').update({ status }).eq('id', id);
+      if (error) throw error;
+
+      if (status === 'received' && po.status !== 'received') {
+        for (const item of po.items) {
+           const { data: curr } = await supabase.from('inventory').select('quantity').eq('id', item.itemId).single();
+           if(curr) {
+              await supabase.from('inventory').update({ quantity: curr.quantity + item.quantity, lastUpdated: new Date().toISOString() }).eq('id', item.itemId);
+           }
+        }
+      }
     } catch (err) {
       console.error("Error updating PO status:", err);
-      alert("Failed to update order status.");
-      fetchData();
     }
   };
 
@@ -417,34 +525,34 @@ const App: React.FC = () => {
     </button>
   );
 
-  // 1. Initial Loading State
   if (authLoading) {
       return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-primary">
               <Loader2 className="w-12 h-12 animate-spin mb-4" />
-              <h2 className="text-xl font-bold">Raha Soldi System</h2>
+              <h1 className="text-2xl font-bold text-slate-800 mb-2">Raha Soldi Ent.</h1>
               <p className="text-slate-500 mt-2">Checking secure session...</p>
           </div>
       );
   }
 
-  // 2. Auth Guard
   if (!session) {
     return <Auth />;
   }
 
-  // Extract Role
-  // In a real app we might fetch this from a 'profiles' table, but for this prototype we rely on metadata
   const userRole = (session.user.user_metadata?.role as UserRole) || 'cashier';
 
-  // 3. Main Application
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans">
       {/* Sidebar - Desktop */}
       <aside className="hidden lg:flex flex-col w-64 bg-primary text-white fixed h-full shadow-xl z-20">
-        <div className="p-8">
-          <h1 className="text-2xl font-bold tracking-tight text-white">Raha Soldi <span className="text-secondary">Ent.</span></h1>
-          <p className="text-xs text-blue-300 mt-1 uppercase tracking-wider">Inventory System</p>
+        <div className="p-6 flex flex-col items-center border-b border-blue-800">
+          <div className="flex items-center space-x-2 mb-2">
+             <div className="bg-blue-800 p-2 rounded-lg">
+               <LayoutDashboard className="w-6 h-6 text-white" />
+             </div>
+             <span className="text-lg font-bold">Raha Soldi Ent.</span>
+          </div>
+          <p className="text-xs text-blue-300 uppercase tracking-wider font-semibold">Inventory System</p>
         </div>
         <nav className="flex-1 mt-6 overflow-y-auto">
           <NavItem view="dashboard" icon={LayoutDashboard} label="Dashboard" />
@@ -452,7 +560,6 @@ const App: React.FC = () => {
           <NavItem view="history" icon={History} label="Sales History" />
           <NavItem view="inventory" icon={Package} label="Inventory" />
           
-          {/* Admin Only Links */}
           {userRole === 'admin' && (
             <>
               <NavItem view="purchases" icon={Truck} label="Purchase Orders" />
@@ -477,16 +584,29 @@ const App: React.FC = () => {
                 <LogOut className="w-4 h-4" />
                 <span>Sign Out</span>
             </button>
-            <div className={`mt-4 flex items-center justify-center text-xs px-3 py-2 rounded-lg ${isOnline ? 'bg-blue-800 text-blue-200' : 'bg-red-800 text-red-100'}`}>
-                {isOnline ? <Wifi className="w-3 h-3 mr-2" /> : <WifiOff className="w-3 h-3 mr-2" />}
-                {isOnline ? 'Online' : 'Offline Mode'}
+            <div className="mt-4 space-y-2">
+                <div className={`flex items-center justify-center text-xs px-3 py-2 rounded-lg ${isOnline ? 'bg-blue-800 text-blue-200' : 'bg-red-800 text-red-100'}`}>
+                    {isOnline ? <Wifi className="w-3 h-3 mr-2" /> : <WifiOff className="w-3 h-3 mr-2" />}
+                    {isOnline ? 'Online' : 'Offline Mode'}
+                </div>
+                {pendingActions > 0 && (
+                    <div className="flex items-center justify-center text-xs px-3 py-2 rounded-lg bg-yellow-600 text-white animate-pulse">
+                        <RefreshCw className={`w-3 h-3 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                        {isSyncing ? 'Syncing...' : `${pendingActions} Pending`}
+                    </div>
+                )}
             </div>
         </div>
       </aside>
 
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 w-full bg-primary text-white z-30 flex items-center justify-between p-4 shadow-md">
-        <h1 className="text-lg font-bold">Raha Soldi Ent.</h1>
+        <div className="flex items-center space-x-2">
+            <div className="bg-blue-800 p-1.5 rounded-lg">
+                <LayoutDashboard className="w-5 h-5 text-white" />
+            </div>
+            <span className="font-bold text-lg">Raha Soldi</span>
+        </div>
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           {isMobileMenuOpen ? <X /> : <Menu />}
         </button>

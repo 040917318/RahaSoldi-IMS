@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { Loader2, Lock, Mail, AlertCircle, CheckCircle, ShieldCheck, User } from 'lucide-react';
+import { Loader2, Lock, Mail, AlertCircle, CheckCircle, ShieldCheck, User, LayoutDashboard } from 'lucide-react';
 import { UserRole } from '../types';
 
 export const Auth: React.FC = () => {
@@ -47,14 +47,12 @@ export const Auth: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center">
-            <div className="h-16 w-16 bg-primary rounded-xl flex items-center justify-center shadow-lg">
-                <ShieldCheck className="h-10 w-10 text-white" />
+        <div className="flex flex-col items-center justify-center mb-6">
+            <div className="bg-primary/10 p-3 rounded-xl mb-4">
+                <LayoutDashboard className="h-10 w-10 text-primary" />
             </div>
+            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Raha Soldi Ent.</h2>
         </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900">
-          Raha Soldi <span className="text-secondary">Ent.</span>
-        </h2>
         <p className="mt-2 text-center text-sm text-slate-600">
           {isSignUp ? 'Create a new account' : 'Sign in to access inventory'}
         </p>

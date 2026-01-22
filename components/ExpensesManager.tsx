@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { ExpenseRecord } from '../types';
-import { Plus, Search, Calendar, Tag, Download, Filter, TrendingUp, PieChart as PieIcon } from 'lucide-react';
+import { Plus, Search, Calendar, Tag, Download, Filter, TrendingUp, PieChart as PieIcon, ChevronDown } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 
 interface ExpensesManagerProps {
@@ -367,8 +367,8 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
         </div>
       )}
 
-      {/* Expenses Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      {/* Expenses Table (Desktop) */}
+      <div className="hidden md:block bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
                 <tr>
@@ -409,6 +409,39 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                 )}
             </tbody>
         </table>
+      </div>
+
+      {/* Expenses List (Mobile) */}
+      <div className="md:hidden space-y-4">
+        {filteredExpenses.map((expense) => (
+            <div key={expense.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex justify-between items-start mb-2">
+                    <span className="text-xs text-slate-500 flex items-center">
+                        <Calendar className="w-3 h-3 mr-1" />
+                        {new Date(expense.date).toLocaleDateString()}
+                    </span>
+                    <span className="font-bold text-red-600">
+                        -{currencySymbol}{expense.amount.toFixed(2)}
+                    </span>
+                </div>
+                <div className="mb-2 font-medium text-slate-800">
+                    {expense.description}
+                </div>
+                <div className="flex items-center">
+                    <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                        {expense.category}
+                    </span>
+                </div>
+            </div>
+        ))}
+         {filteredExpenses.length === 0 && (
+            <div className="text-center py-10 text-slate-500">
+                <div className="flex flex-col items-center justify-center">
+                    <Filter className="w-8 h-8 text-slate-300 mb-2" />
+                    <p>No expenses found.</p>
+                </div>
+            </div>
+        )}
       </div>
     </div>
   );

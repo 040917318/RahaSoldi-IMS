@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { InventoryItem, SaleItem } from '../types';
 import { ShoppingCart, Plus, Trash2, CheckCircle, Search, Tag } from 'lucide-react';
 
@@ -12,9 +12,14 @@ interface SalesTerminalProps {
 export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompleteSale, currencySymbol }) => {
   const [cart, setCart] = useState<SaleItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [qtyInput, setQtyInput] = useState<number>(1);
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Derive selected product from inventory to ensure we always show current stock levels
+  const selectedProduct = useMemo(() => 
+    inventory.find(item => item.id === selectedProductId) || null
+  , [inventory, selectedProductId]);
 
   // Auto-clear success message
   useEffect(() => {
@@ -24,9 +29,16 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
     }
   }, [successMsg]);
 
-  const filteredInventory = inventory.filter(item => 
-    item.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredInventory = useMemo(() => {
+    return inventory.filter(item => 
+      item.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [inventory, searchTerm]);
+
+  // Helper to calculate total quantity of an item already in cart
+  const itemInCartTotal = (cartItems: SaleItem[], itemId: string): number => {
+    return cartItems.filter(i => i.itemId === itemId).reduce((acc, i) => acc + i.quantity, 0);
+  };
 
   const addToCart = () => {
     if (!selectedProduct) return;
@@ -42,14 +54,14 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
     }
 
     const existingItemIndex = cart.findIndex(item => item.itemId === selectedProduct.id);
-    
-    if (existingItemIndex > -1) {
-        // Check if total new quantity exceeds stock
-        if (cart[existingItemIndex].quantity + qtyInput > selectedProduct.quantity) {
-             alert(`Cannot add more. Total in cart would exceed stock (${selectedProduct.quantity}).`);
-             return;
-        }
+    const currentInCart = itemInCartTotal(cart, selectedProduct.id);
 
+    if (currentInCart + qtyInput > selectedProduct.quantity) {
+         alert(`Cannot add more. Total in cart (${currentInCart} + ${qtyInput}) would exceed stock (${selectedProduct.quantity}).`);
+         return;
+    }
+
+    if (existingItemIndex > -1) {
         const newCart = [...cart];
         newCart[existingItemIndex].quantity += qtyInput;
         setCart(newCart);
@@ -65,8 +77,8 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
         setCart([...cart, newItem]);
     }
     
-    // Reset selection
-    setSelectedProduct(null);
+    // Reset selection logic
+    setSelectedProductId(null);
     setQtyInput(1);
     setSearchTerm('');
   };
@@ -95,15 +107,16 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
     onCompleteSale(cart);
     setCart([]);
     setSuccessMsg('Sale recorded successfully!');
+    setSelectedProductId(null); // Clear selection to prevent showing stale data if quantity drops to 0
   };
 
   const cartTotal = cart.reduce((acc, item) => acc + (item.quantity * item.priceAtSale) - (item.discount || 0), 0);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-140px)]">
+    <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6 h-auto lg:h-[calc(100vh-140px)]">
       {/* Left: Product Selection */}
-      <div className="lg:col-span-2 flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b border-slate-100 bg-slate-50">
+      <div className="lg:col-span-2 flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-[60vh] lg:h-auto">
+        <div className="p-4 border-b border-slate-100 bg-slate-50 flex-shrink-0">
           <div className="relative">
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-5 w-5 text-slate-400" />
@@ -123,9 +136,9 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
             {filteredInventory.map(item => (
               <div 
                 key={item.id}
-                onClick={() => setSelectedProduct(item)}
+                onClick={() => { setSelectedProductId(item.id); setQtyInput(1); }}
                 className={`cursor-pointer p-4 rounded-xl border transition-all ${
-                  selectedProduct?.id === item.id 
+                  selectedProductId === item.id 
                     ? 'border-primary ring-2 ring-primary ring-opacity-50 bg-indigo-50' 
                     : 'border-slate-200 hover:border-primary hover:shadow-md bg-white'
                 }`}
@@ -144,7 +157,7 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
         </div>
 
         {/* Selected Product Action Area */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200">
+        <div className="p-4 bg-slate-50 border-t border-slate-200 flex-shrink-0">
            {selectedProduct ? (
              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                <div className="flex items-center gap-4 w-full sm:w-auto">
@@ -182,8 +195,8 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
       </div>
 
       {/* Right: Cart & Checkout */}
-      <div className="bg-white rounded-xl shadow-xl border border-slate-200 flex flex-col h-full">
-        <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+      <div className="bg-white rounded-xl shadow-xl border border-slate-200 flex flex-col h-auto lg:h-full">
+        <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center rounded-t-xl">
           <h2 className="font-bold text-slate-800 flex items-center">
             <ShoppingCart className="w-5 h-5 mr-2" />
             Current Sale
@@ -191,7 +204,7 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
           <span className="bg-primary text-white text-xs font-bold px-2 py-1 rounded-full">{cart.length} items</span>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[250px] lg:min-h-0">
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-400">
               <ShoppingCart className="w-12 h-12 mb-2 opacity-20" />
@@ -234,7 +247,7 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
           )}
         </div>
 
-        <div className="p-6 bg-slate-50 border-t border-slate-200">
+        <div className="p-6 bg-slate-50 border-t border-slate-200 rounded-b-xl">
           <div className="flex justify-between items-center mb-6">
             <span className="text-slate-500 font-medium">Total Amount</span>
             <span className="text-3xl font-bold text-slate-900">{currencySymbol}{cartTotal.toFixed(2)}</span>
@@ -258,9 +271,4 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
       </div>
     </div>
   );
-};
-
-// Helper to calculate total quantity of an item already in cart
-const itemInCartTotal = (cart: SaleItem[], itemId: string): number => {
-    return cart.filter(i => i.itemId === itemId).reduce((acc, i) => acc + i.quantity, 0);
 };
