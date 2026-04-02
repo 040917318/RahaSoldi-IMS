@@ -143,7 +143,7 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ inventory, sales }) => {
                     <MessageSquare className="w-4 h-4 mr-1" /> Specific Question (Optional)
                 </label>
                 <textarea
-                    className="w-full border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-3 border"
+                    className="w-full bg-blue-50 border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-3 border"
                     rows={3}
                     placeholder="e.g., Which product category has the highest profit margin? or Why are sales low this week?"
                     value={customQuestion}
