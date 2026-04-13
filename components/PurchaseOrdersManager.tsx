@@ -111,7 +111,7 @@ export const PurchaseOrdersManager: React.FC<PurchaseOrdersManagerProps> = ({
               </div>
               <input
                 type="text"
-                className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg leading-5 bg-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm transition duration-150 ease-in-out"
+                className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg leading-5 bg-white dark:bg-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm transition duration-150 ease-in-out"
                 placeholder="Search supplier or order ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -126,34 +126,34 @@ export const PurchaseOrdersManager: React.FC<PurchaseOrdersManagerProps> = ({
             </button>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+              <thead className="bg-slate-50 dark:bg-slate-900">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Supplier</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Items</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Total Cost</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Supplier</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Items</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Cost</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 bg-white">
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-700 bg-white dark:bg-slate-800">
                 {filteredOrders.map((po) => (
-                  <tr key={po.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                  <tr key={po.id} className="hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-900 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
                       {new Date(po.date).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-slate-50">
                       {po.supplier}
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-500">
+                    <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
                        <div className="max-w-xs truncate">
                          {po.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}
                        </div>
                        <div className="text-xs text-slate-400 mt-1">{po.items.length} items</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800 dark:text-slate-100">
                       {currencySymbol}{po.totalCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -194,7 +194,7 @@ export const PurchaseOrdersManager: React.FC<PurchaseOrdersManagerProps> = ({
                 ))}
                 {filteredOrders.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
                       <Truck className="w-12 h-12 mx-auto text-slate-300 mb-2" />
                       <p>No purchase orders found. Create one to restock inventory.</p>
                     </td>
@@ -206,13 +206,13 @@ export const PurchaseOrdersManager: React.FC<PurchaseOrdersManagerProps> = ({
         </>
       ) : (
         // Create Mode
-        <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
-            <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-                <h2 className="text-lg font-bold text-slate-800 flex items-center">
+        <div className="max-w-4xl mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="bg-slate-50 dark:bg-slate-900 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center">
                     <Truck className="w-5 h-5 mr-2 text-primary" />
                     Create Purchase Order
                 </h2>
-                <button onClick={() => setViewMode('list')} className="text-slate-500 hover:text-slate-700 text-sm">
+                <button onClick={() => setViewMode('list')} className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200 text-sm">
                     Cancel
                 </button>
             </div>
@@ -221,57 +221,57 @@ export const PurchaseOrdersManager: React.FC<PurchaseOrdersManagerProps> = ({
                 {/* Left: Supplier & Order Items */}
                 <div className="space-y-6">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Supplier Name</label>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Supplier Name</label>
                         <input
                             type="text"
-                            className="block w-full border-slate-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border"
+                            className="block w-full border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border"
                             placeholder="e.g. Accra Wholesalers Ltd"
                             value={supplier}
                             onChange={(e) => setSupplier(e.target.value)}
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Notes (Optional)</label>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Notes (Optional)</label>
                         <textarea
-                            className="block w-full border-slate-300 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border"
+                            className="block w-full border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border"
                             rows={2}
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                         />
                     </div>
 
-                    <div className="border-t border-slate-200 pt-6">
-                        <h3 className="font-medium text-slate-800 mb-3">Add Items to Order</h3>
+                    <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
+                        <h3 className="font-medium text-slate-800 dark:text-slate-100 mb-3">Add Items to Order</h3>
                         
                         {!selectedInventoryItem ? (
                              <div className="relative">
                                 <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                                 <input
                                     type="text"
-                                    className="block w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-primary focus:border-primary"
+                                    className="block w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-primary focus:border-primary"
                                     placeholder="Search inventory to order..."
                                     value={itemSearch}
                                     onChange={(e) => setItemSearch(e.target.value)}
                                 />
                                 {itemSearch && (
-                                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                                         {filteredInventory.length > 0 ? (
                                             filteredInventory.map(item => (
                                                 <div 
                                                     key={item.id}
-                                                    className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm flex justify-between items-center"
+                                                    className="px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-900 cursor-pointer text-sm flex justify-between items-center"
                                                     onClick={() => {
                                                         setSelectedInventoryItem(item);
                                                         setAddCost(item.costPrice); // Default to current cost
                                                         setItemSearch('');
                                                     }}
                                                 >
-                                                    <span className="font-medium text-slate-700">{item.name}</span>
+                                                    <span className="font-medium text-slate-700 dark:text-slate-200">{item.name}</span>
                                                     <span className="text-slate-400 text-xs">Current Stock: {item.quantity}</span>
                                                 </div>
                                             ))
                                         ) : (
-                                            <div className="px-4 py-2 text-sm text-slate-500">No items found</div>
+                                            <div className="px-4 py-2 text-sm text-slate-500 dark:text-slate-400">No items found</div>
                                         )}
                                     </div>
                                 )}
@@ -319,9 +319,9 @@ export const PurchaseOrdersManager: React.FC<PurchaseOrdersManagerProps> = ({
                 </div>
 
                 {/* Right: Order Summary */}
-                <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 flex flex-col h-full">
-                    <h3 className="font-bold text-slate-800 mb-4 flex items-center">
-                        <FileText className="w-5 h-5 mr-2 text-slate-500" />
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-700 flex flex-col h-full">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center">
+                        <FileText className="w-5 h-5 mr-2 text-slate-500 dark:text-slate-400" />
                         Order Summary
                     </h3>
                     
@@ -332,13 +332,13 @@ export const PurchaseOrdersManager: React.FC<PurchaseOrdersManagerProps> = ({
                             </div>
                         ) : (
                             orderItems.map((item, idx) => (
-                                <div key={idx} className="bg-white p-3 rounded-lg border border-slate-200 flex justify-between items-center shadow-sm">
+                                <div key={idx} className="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 flex justify-between items-center shadow-sm">
                                     <div>
-                                        <div className="font-medium text-slate-800 text-sm">{item.name}</div>
-                                        <div className="text-xs text-slate-500">{item.quantity} x {currencySymbol}{item.unitCost.toFixed(2)}</div>
+                                        <div className="font-medium text-slate-800 dark:text-slate-100 text-sm">{item.name}</div>
+                                        <div className="text-xs text-slate-500 dark:text-slate-400">{item.quantity} x {currencySymbol}{item.unitCost.toFixed(2)}</div>
                                     </div>
                                     <div className="flex items-center">
-                                        <span className="font-bold text-slate-700 text-sm mr-3">
+                                        <span className="font-bold text-slate-700 dark:text-slate-200 text-sm mr-3">
                                             {currencySymbol}{(item.quantity * item.unitCost).toFixed(2)}
                                         </span>
                                         <button onClick={() => handleRemoveItem(idx)} className="text-slate-300 hover:text-red-500">
@@ -350,10 +350,10 @@ export const PurchaseOrdersManager: React.FC<PurchaseOrdersManagerProps> = ({
                         )}
                     </div>
 
-                    <div className="border-t border-slate-200 pt-4 mt-auto">
+                    <div className="border-t border-slate-200 dark:border-slate-700 pt-4 mt-auto">
                         <div className="flex justify-between items-center mb-6">
-                            <span className="text-slate-600 font-medium">Total Cost</span>
-                            <span className="text-2xl font-bold text-slate-900">
+                            <span className="text-slate-600 dark:text-slate-300 font-medium">Total Cost</span>
+                            <span className="text-2xl font-bold text-slate-900 dark:text-slate-50">
                                 {currencySymbol}
                                 {orderItems.reduce((acc, item) => acc + (item.quantity * item.unitCost), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </span>

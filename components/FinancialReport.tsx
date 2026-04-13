@@ -2,7 +2,8 @@
 import React, { useState, useMemo } from 'react';
 import { InventoryItem, SaleRecord, ExpenseRecord } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ComposedChart, Line, AreaChart, Area } from 'recharts';
-import { TrendingUp, TrendingDown, Scale, Wallet, Calendar, Filter, Percent, DollarSign, Activity, Tag } from 'lucide-react';
+import { TrendingUp, TrendingDown, Scale, Wallet, Calendar, Filter, Percent, DollarSign, Activity, Tag, Download } from 'lucide-react';
+import { exportToCSV } from '../utils';
 
 interface FinancialReportProps {
   inventory: InventoryItem[];
@@ -128,49 +129,73 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
     <div className="space-y-6 animate-fade-in">
       
       {/* Header & Controls */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
         <div>
-           <h2 className="text-xl font-bold text-slate-800 flex items-center">
+           <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center">
              <Activity className="w-6 h-6 mr-2 text-primary" />
              Financial Performance
            </h2>
-           <p className="text-sm text-slate-500">Analyze revenue, expenses, and profitability trends.</p>
+           <p className="text-sm text-slate-500 dark:text-slate-400">Analyze revenue, expenses, and profitability trends.</p>
         </div>
         
-        <div className="flex bg-slate-100 p-1 rounded-lg">
-           {(['7d', '30d', '90d', '1y', 'all'] as const).map(range => (
-             <button
-                key={range}
-                onClick={() => setTimeRange(range)}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-                  timeRange === range 
-                    ? 'bg-white text-primary shadow-sm' 
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
-             >
-                {range === 'all' ? 'All Time' : range.toUpperCase()}
-             </button>
-           ))}
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+          <button
+            onClick={() => {
+              const rows: (string | number)[][] = [
+                ['Metric', 'Amount'],
+                ['Total Revenue', metrics.totalRevenue.toFixed(2)],
+                ['Total Discounts', metrics.totalDiscount.toFixed(2)],
+                ['Gross Profit', metrics.totalGrossProfit.toFixed(2)],
+                ['Cost of Goods Sold (COGS)', metrics.totalCOGS.toFixed(2)],
+                ['Operating Expenses', metrics.totalExpenses.toFixed(2)],
+                ['Net Income', metrics.netIncome.toFixed(2)],
+                ['Gross Margin (%)', metrics.grossMargin.toFixed(2)],
+                ['Net Margin (%)', metrics.netMargin.toFixed(2)],
+                ['Expense Ratio (%)', metrics.expenseRatio.toFixed(2)],
+                ['Inventory Value', metrics.inventoryValue.toFixed(2)]
+              ];
+              exportToCSV(`financial_report_${timeRange}_${new Date().toISOString().split('T')[0]}.csv`, rows);
+            }}
+            className="flex items-center justify-center px-4 py-1.5 border border-slate-300 dark:border-slate-600 text-sm font-medium rounded-lg text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary shadow-sm w-full sm:w-auto"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </button>
+          <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
+             {(['7d', '30d', '90d', '1y', 'all'] as const).map(range => (
+               <button
+                  key={range}
+                  onClick={() => setTimeRange(range)}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                    timeRange === range 
+                      ? 'bg-white dark:bg-slate-800 text-primary shadow-sm' 
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200'
+                  }`}
+               >
+                  {range === 'all' ? 'All Time' : range.toUpperCase()}
+               </button>
+             ))}
+          </div>
         </div>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 border-l-4 border-l-blue-500">
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700/50 border-l-4 border-l-blue-500">
           <div className="flex justify-between items-start">
             <div>
-                <p className="text-sm font-medium text-slate-500">Total Revenue</p>
-                <h3 className="text-2xl font-bold text-slate-800">{currencySymbol}{metrics.totalRevenue.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Revenue</p>
+                <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{currencySymbol}{metrics.totalRevenue.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
             </div>
             <div className="p-2 bg-blue-50 rounded-lg"><DollarSign className="w-5 h-5 text-blue-600" /></div>
           </div>
           <p className="text-xs text-slate-400 mt-2">Gross Margin: {metrics.grossMargin.toFixed(1)}%</p>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 border-l-4 border-l-green-500">
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700/50 border-l-4 border-l-green-500">
           <div className="flex justify-between items-start">
              <div>
-                <p className="text-sm font-medium text-slate-500">Net Income</p>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Net Income</p>
                 <h3 className={`text-2xl font-bold ${metrics.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {currencySymbol}{metrics.netIncome.toLocaleString(undefined, {maximumFractionDigits: 0})}
                 </h3>
@@ -180,22 +205,22 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
            <p className="text-xs text-slate-400 mt-2">Net Margin: {metrics.netMargin.toFixed(1)}%</p>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 border-l-4 border-l-red-500">
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700/50 border-l-4 border-l-red-500">
           <div className="flex justify-between items-start">
              <div>
-                <p className="text-sm font-medium text-slate-500">Op. Expenses</p>
-                <h3 className="text-2xl font-bold text-slate-800">{currencySymbol}{metrics.totalExpenses.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Op. Expenses</p>
+                <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{currencySymbol}{metrics.totalExpenses.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
              </div>
              <div className="p-2 bg-red-50 rounded-lg"><Wallet className="w-5 h-5 text-red-600" /></div>
           </div>
           <p className="text-xs text-slate-400 mt-2">Ratio to Rev: {metrics.expenseRatio.toFixed(1)}%</p>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 border-l-4 border-l-purple-500">
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700/50 border-l-4 border-l-purple-500">
           <div className="flex justify-between items-start">
              <div>
-                <p className="text-sm font-medium text-slate-500">Discounts Given</p>
-                <h3 className="text-2xl font-bold text-slate-800">{currencySymbol}{metrics.totalDiscount.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Discounts Given</p>
+                <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{currencySymbol}{metrics.totalDiscount.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
              </div>
              <div className="p-2 bg-purple-50 rounded-lg"><Tag className="w-5 h-5 text-purple-600" /></div>
           </div>
@@ -206,8 +231,8 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
       {/* Main Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Revenue vs Expense vs Profit Trend */}
-          <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-             <h3 className="text-lg font-bold text-slate-800 mb-6">Financial Trends</h3>
+          <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+             <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6">Financial Trends</h3>
              <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart data={chartData}>
@@ -238,8 +263,8 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
           </div>
 
           {/* Income Statement Breakdown */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-             <h3 className="text-lg font-bold text-slate-800 mb-6">P&L Summary</h3>
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+             <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6">P&L Summary</h3>
              <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={pnlData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
@@ -265,8 +290,8 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
       {/* Secondary Charts Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Discount Trend */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-              <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center">
                   <Tag className="w-5 h-5 mr-2 text-purple-500" />
                   Discount Usage
               </h3>
@@ -287,9 +312,9 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
           </div>
 
           {/* Balance Sheet Asset View */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-slate-800 flex items-center">
+                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center">
                     <Scale className="w-5 h-5 mr-2 text-primary" />
                     Asset Distribution (Snapshot)
                 </h3>

@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { InventoryItem, SaleItem } from '../types';
+import { InventoryItem, SaleItem, SaleRecord } from '../types';
 import { ShoppingCart, Plus, Trash2, CheckCircle, Search, Tag } from 'lucide-react';
+import { ReceiptModal } from './ReceiptModal';
 
 interface SalesTerminalProps {
   inventory: InventoryItem[];
-  onCompleteSale: (items: SaleItem[]) => void;
+  onCompleteSale: (items: SaleItem[]) => Promise<SaleRecord> | SaleRecord;
   currencySymbol: string;
 }
 
@@ -15,6 +16,7 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [qtyInput, setQtyInput] = useState<number>(1);
   const [successMsg, setSuccessMsg] = useState('');
+  const [completedSale, setCompletedSale] = useState<SaleRecord | null>(null);
 
   // Derive selected product from inventory to ensure we always show current stock levels
   const selectedProduct = useMemo(() => 
@@ -102,12 +104,13 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
     setCart(newCart);
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (cart.length === 0) return;
-    onCompleteSale(cart);
+    const sale = await onCompleteSale(cart);
     setCart([]);
     setSuccessMsg('Sale recorded successfully!');
     setSelectedProductId(null); // Clear selection to prevent showing stale data if quantity drops to 0
+    setCompletedSale(sale);
   };
 
   const cartTotal = cart.reduce((acc, item) => acc + (item.quantity * item.priceAtSale) - (item.discount || 0), 0);
@@ -115,15 +118,15 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
   return (
     <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6 h-auto lg:h-[calc(100vh-140px)]">
       {/* Left: Product Selection */}
-      <div className="lg:col-span-2 flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-[60vh] lg:h-auto">
-        <div className="p-4 border-b border-slate-100 bg-slate-50 flex-shrink-0">
+      <div className="lg:col-span-2 flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden h-[60vh] lg:h-auto">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900 flex-shrink-0">
           <div className="relative">
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-5 w-5 text-slate-400" />
               </div>
             <input
               type="text"
-              className="block w-full pl-10 pr-3 py-3 border border-slate-300 rounded-lg leading-5 bg-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition duration-150 ease-in-out"
+              className="block w-full pl-10 pr-3 py-3 border border-slate-300 dark:border-slate-600 rounded-lg leading-5 bg-white dark:bg-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition duration-150 ease-in-out"
               placeholder="Search product to add..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -140,16 +143,16 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                 className={`cursor-pointer p-4 rounded-xl border transition-all ${
                   selectedProductId === item.id 
                     ? 'border-primary ring-2 ring-primary ring-opacity-50 bg-indigo-50' 
-                    : 'border-slate-200 hover:border-primary hover:shadow-md bg-white'
+                    : 'border-slate-200 dark:border-slate-700 hover:border-primary hover:shadow-md bg-white dark:bg-slate-800'
                 }`}
               >
                 <div className="flex justify-between items-start mb-2">
-                   <div className="font-bold text-slate-800 truncate">{item.name}</div>
+                   <div className="font-bold text-slate-800 dark:text-slate-100 truncate">{item.name}</div>
                    <div className={`text-xs font-bold px-2 py-1 rounded-full ${item.quantity > item.lowStockThreshold ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                      Qty: {item.quantity}
                    </div>
                 </div>
-                <div className="text-sm text-slate-500 mb-1">{item.category}</div>
+                <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">{item.category}</div>
                 <div className="text-lg font-bold text-primary">{currencySymbol}{item.salesPrice.toFixed(2)}</div>
               </div>
             ))}
@@ -157,15 +160,15 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
         </div>
 
         {/* Selected Product Action Area */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex-shrink-0">
+        <div className="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
            {selectedProduct ? (
              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                <div className="flex items-center gap-4 w-full sm:w-auto">
-                 <span className="font-medium text-slate-700 hidden sm:inline">Add {selectedProduct.name}:</span>
-                 <div className="flex items-center border border-slate-300 rounded-lg bg-white">
+                 <span className="font-medium text-slate-700 dark:text-slate-200 hidden sm:inline">Add {selectedProduct.name}:</span>
+                 <div className="flex items-center border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800">
                    <button 
                     onClick={() => setQtyInput(Math.max(1, qtyInput - 1))}
-                    className="px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-l-lg border-r border-slate-300"
+                    className="px-3 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-700 rounded-l-lg border-r border-slate-300 dark:border-slate-600"
                    >-</button>
                    <input 
                     type="number" 
@@ -175,7 +178,7 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                    />
                     <button 
                     onClick={() => setQtyInput(qtyInput + 1)}
-                    className="px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-r-lg border-l border-slate-300"
+                    className="px-3 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-700 rounded-r-lg border-l border-slate-300 dark:border-slate-600"
                    >+</button>
                  </div>
                </div>
@@ -189,15 +192,15 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                </button>
              </div>
            ) : (
-             <div className="text-center text-slate-500 py-3">Select a product above to start adding to cart</div>
+             <div className="text-center text-slate-500 dark:text-slate-400 py-3">Select a product above to start adding to cart</div>
            )}
         </div>
       </div>
 
       {/* Right: Cart & Checkout */}
-      <div className="bg-white rounded-xl shadow-xl border border-slate-200 flex flex-col h-auto lg:h-full">
-        <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center rounded-t-xl">
-          <h2 className="font-bold text-slate-800 flex items-center">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 flex flex-col h-auto lg:h-full">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900 flex justify-between items-center rounded-t-xl">
+          <h2 className="font-bold text-slate-800 dark:text-slate-100 flex items-center">
             <ShoppingCart className="w-5 h-5 mr-2" />
             Current Sale
           </h2>
@@ -212,18 +215,18 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
             </div>
           ) : (
             cart.map((item, index) => (
-              <div key={index} className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+              <div key={index} className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-700/50">
                 <div className="flex justify-between items-start mb-2">
                   <div>
-                    <div className="font-medium text-slate-800">{item.name}</div>
-                    <div className="text-sm text-slate-500">{item.quantity} x {currencySymbol}{item.priceAtSale.toFixed(2)}</div>
+                    <div className="font-medium text-slate-800 dark:text-slate-100">{item.name}</div>
+                    <div className="text-sm text-slate-500 dark:text-slate-400">{item.quantity} x {currencySymbol}{item.priceAtSale.toFixed(2)}</div>
                   </div>
                   <button onClick={() => removeFromCart(index)} className="text-red-400 hover:text-red-600 transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
                 
-                <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200">
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
                     {/* Discount Input */}
                     <div className="flex items-center space-x-2">
                          <Tag className="w-3 h-3 text-slate-400" />
@@ -231,14 +234,14 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                             type="number"
                             min="0"
                             placeholder="Discount"
-                            className="w-20 text-xs p-1 border border-slate-300 rounded focus:ring-1 focus:ring-primary focus:outline-none"
+                            className="w-20 text-xs p-1 border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-primary focus:outline-none"
                             value={item.discount || ''}
                             onChange={(e) => updateDiscount(index, parseFloat(e.target.value) || 0)}
                          />
                          {item.discount ? <span className="text-xs text-red-500">-{currencySymbol}{item.discount}</span> : null}
                     </div>
 
-                    <div className="font-bold text-slate-800">
+                    <div className="font-bold text-slate-800 dark:text-slate-100">
                         {currencySymbol}{((item.quantity * item.priceAtSale) - (item.discount || 0)).toFixed(2)}
                     </div>
                 </div>
@@ -247,10 +250,10 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
           )}
         </div>
 
-        <div className="p-6 bg-slate-50 border-t border-slate-200 rounded-b-xl">
+        <div className="p-6 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 rounded-b-xl">
           <div className="flex justify-between items-center mb-6">
-            <span className="text-slate-500 font-medium">Total Amount</span>
-            <span className="text-3xl font-bold text-slate-900">{currencySymbol}{cartTotal.toFixed(2)}</span>
+            <span className="text-slate-500 dark:text-slate-400 font-medium">Total Amount</span>
+            <span className="text-3xl font-bold text-slate-900 dark:text-slate-50">{currencySymbol}{cartTotal.toFixed(2)}</span>
           </div>
           
           <button 
@@ -269,6 +272,14 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
           )}
         </div>
       </div>
+      
+      {completedSale && (
+        <ReceiptModal
+          sale={completedSale}
+          currencySymbol={currencySymbol}
+          onClose={() => setCompletedSale(null)}
+        />
+      )}
     </div>
   );
 };

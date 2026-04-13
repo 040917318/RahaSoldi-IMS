@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Package, ShoppingCart, BrainCircuit, Menu, X, History, Wifi, WifiOff, Loader2, PieChart, Truck, LogOut, Shield, RefreshCw } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, BrainCircuit, Menu, X, History, Wifi, WifiOff, Loader2, PieChart, Truck, LogOut, Shield, RefreshCw, Moon, Sun } from 'lucide-react';
 import { InventoryManager } from './components/InventoryManager';
 import { SalesTerminal } from './components/SalesTerminal';
 import { Dashboard } from './components/Dashboard';
@@ -42,6 +42,12 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   
+  // Dark Mode State
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode');
+    return saved ? JSON.parse(saved) : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
   // Offline / Sync State
   const [pendingActions, setPendingActions] = useState<number>(0);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -52,6 +58,16 @@ const App: React.FC = () => {
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+
+  // Dark Mode Effect
+  useEffect(() => {
+    localStorage.setItem('darkMode', JSON.stringify(isDarkMode));
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
 
   // Connectivity Listeners
   useEffect(() => {
@@ -343,7 +359,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleCompleteSale = async (items: SaleItem[]) => {
+  const handleCompleteSale = async (items: SaleItem[]): Promise<SaleRecord> => {
     const totalAmount = items.reduce((sum, item) => sum + ((item.quantity * item.priceAtSale) - (item.discount || 0)), 0);
     const totalCost = items.reduce((sum, item) => sum + (item.quantity * item.costAtSale), 0);
     
@@ -376,7 +392,7 @@ const App: React.FC = () => {
 
     if (!isOnline) {
         queueAction({ type: 'SALE', payload: { sale: newSale, items } });
-        return;
+        return newSale;
     }
 
     try {
@@ -397,6 +413,8 @@ const App: React.FC = () => {
     } catch (err) {
         console.error("Error processing sale:", err);
     }
+    
+    return newSale;
   };
 
   const handleAddExpense = async (expense: Omit<ExpenseRecord, 'id' | 'recordedAt'>) => {
@@ -527,10 +545,10 @@ const App: React.FC = () => {
 
   if (authLoading) {
       return (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-primary">
+          <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center text-primary">
               <Loader2 className="w-12 h-12 animate-spin mb-4" />
-              <h1 className="text-2xl font-bold text-slate-800 mb-2">Raha Soldi Ent.</h1>
-              <p className="text-slate-500 mt-2">Checking secure session...</p>
+              <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">Raha Soldi Ent.</h1>
+              <p className="text-slate-500 dark:text-slate-400 mt-2">Checking secure session...</p>
           </div>
       );
   }
@@ -542,7 +560,7 @@ const App: React.FC = () => {
   const userRole = (session.user.user_metadata?.role as UserRole) || 'cashier';
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans">
+    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-900 font-sans">
       {/* Sidebar - Desktop */}
       <aside className="hidden lg:flex flex-col w-64 bg-primary text-white fixed h-full shadow-xl z-20">
         <div className="p-6 flex flex-col items-center border-b border-blue-800">
@@ -646,7 +664,7 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto">
           <header className="mb-8 flex justify-between items-end">
             <div>
-              <h2 className="text-2xl font-bold text-slate-800">
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
                 {activeView === 'dashboard' && 'Business Overview'}
                 {activeView === 'inventory' && 'Inventory Management'}
                 {activeView === 'pos' && 'New Sale'}
@@ -656,7 +674,7 @@ const App: React.FC = () => {
                 {activeView === 'insights' && 'Business Intelligence'}
                 {activeView === 'purchases' && 'Supplier Purchase Orders'}
               </h2>
-              <p className="text-slate-500 text-sm mt-1">
+              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
                 {activeView === 'dashboard' && 'Welcome back.'}
                 {activeView === 'inventory' && 'Manage your stock and pricing.'}
                 {activeView === 'pos' && 'Process transactions quickly.'}
@@ -667,8 +685,15 @@ const App: React.FC = () => {
                 {activeView === 'purchases' && 'Create orders and restock inventory.'}
               </p>
             </div>
-            <div className="text-right hidden sm:block">
-               <div className="text-sm font-bold text-slate-700">{new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+            <div className="text-right hidden sm:flex items-center space-x-4">
+               <button
+                 onClick={() => setIsDarkMode(!isDarkMode)}
+                 className="p-2 rounded-full bg-white dark:bg-slate-800 dark:bg-slate-800 text-slate-600 dark:text-slate-300 dark:text-slate-300 hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-700 dark:hover:bg-slate-700 transition-colors shadow-sm border border-slate-200 dark:border-slate-700 dark:border-slate-700"
+                 title="Toggle Dark Mode"
+               >
+                 {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+               </button>
+               <div className="text-sm font-bold text-slate-700 dark:text-slate-200 dark:text-slate-300">{new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
             </div>
           </header>
 

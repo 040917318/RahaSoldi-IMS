@@ -45,24 +45,24 @@ export const Auth: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex flex-col items-center justify-center mb-6">
             <div className="bg-primary/10 p-3 rounded-xl mb-4">
                 <LayoutDashboard className="h-10 w-10 text-primary" />
             </div>
-            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Raha Soldi Ent.</h2>
+            <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-50 tracking-tight">Raha Soldi Ent.</h2>
         </div>
-        <p className="mt-2 text-center text-sm text-slate-600">
+        <p className="mt-2 text-center text-sm text-slate-600 dark:text-slate-300">
           {isSignUp ? 'Create a new account' : 'Sign in to access inventory'}
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-xl sm:rounded-xl sm:px-10 border border-slate-100">
+        <div className="bg-white dark:bg-slate-800 py-8 px-4 shadow-xl sm:rounded-xl sm:px-10 border border-slate-100 dark:border-slate-700/50">
           <form className="space-y-6" onSubmit={handleAuth}>
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700">
+              <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-200">
                 Email address
               </label>
               <div className="mt-1 relative rounded-md shadow-sm">
@@ -77,14 +77,14 @@ export const Auth: React.FC = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="focus:ring-primary focus:border-primary block w-full pl-10 sm:text-sm border-slate-300 rounded-lg py-2 border"
+                  className="focus:ring-primary focus:border-primary block w-full pl-10 sm:text-sm border-slate-300 dark:border-slate-600 rounded-lg py-2 border"
                   placeholder="you@rahasoldi.com"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-200">
                 Password
               </label>
               <div className="mt-1 relative rounded-md shadow-sm">
@@ -99,7 +99,7 @@ export const Auth: React.FC = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="focus:ring-primary focus:border-primary block w-full pl-10 sm:text-sm border-slate-300 rounded-lg py-2 border"
+                  className="focus:ring-primary focus:border-primary block w-full pl-10 sm:text-sm border-slate-300 dark:border-slate-600 rounded-lg py-2 border"
                   placeholder="••••••••"
                 />
               </div>
@@ -107,7 +107,7 @@ export const Auth: React.FC = () => {
 
             {isSignUp && (
               <div>
-                <label htmlFor="role" className="block text-sm font-medium text-slate-700">
+                <label htmlFor="role" className="block text-sm font-medium text-slate-700 dark:text-slate-200">
                   Account Role
                 </label>
                 <div className="mt-1 relative rounded-md shadow-sm">
@@ -119,13 +119,13 @@ export const Auth: React.FC = () => {
                     name="role"
                     value={role}
                     onChange={(e) => setRole(e.target.value as UserRole)}
-                    className="focus:ring-primary focus:border-primary block w-full pl-10 sm:text-sm border-slate-300 rounded-lg py-2 border bg-white"
+                    className="focus:ring-primary focus:border-primary block w-full pl-10 sm:text-sm border-slate-300 dark:border-slate-600 rounded-lg py-2 border bg-white dark:bg-slate-800"
                   >
                     <option value="cashier">Cashier (Restricted Access)</option>
                     <option value="admin">Administrator (Full Access)</option>
                   </select>
                 </div>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   Admins can edit stock and view financials. Cashiers can only sell.
                 </p>
               </div>
@@ -168,10 +168,10 @@ export const Auth: React.FC = () => {
           <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200" />
+                <div className="w-full border-t border-slate-200 dark:border-slate-700" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-slate-500">
+                <span className="px-2 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400">
                   {isSignUp ? 'Already have an account?' : 'Need an account?'}
                 </span>
               </div>
@@ -180,7 +180,7 @@ export const Auth: React.FC = () => {
             <div className="mt-6">
                 <button
                     onClick={() => { setIsSignUp(!isSignUp); setMessage(null); }}
-                    className="w-full flex justify-center py-2 px-4 border border-slate-300 rounded-lg shadow-sm bg-white text-sm font-medium text-slate-500 hover:bg-slate-50"
+                    className="w-full flex justify-center py-2 px-4 border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm bg-white dark:bg-slate-800 text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-900"
                 >
                     {isSignUp ? 'Sign in instead' : 'Create new account'}
                 </button>

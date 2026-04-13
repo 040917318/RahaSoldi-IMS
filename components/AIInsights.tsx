@@ -64,7 +64,7 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ inventory, sales }) => {
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-8 text-white shadow-lg">
         <div className="flex items-center space-x-4 mb-4">
-          <div className="p-3 bg-white/20 rounded-lg backdrop-blur-sm">
+          <div className="p-3 bg-white dark:bg-slate-800/20 rounded-lg backdrop-blur-sm">
             <Brain className="w-8 h-8 text-white" />
           </div>
           <div>
@@ -80,8 +80,8 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ inventory, sales }) => {
       </div>
 
        {/* Configuration Panel */}
-       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 animate-fade-in">
-          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 animate-fade-in">
+          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center">
              <Clock className="w-5 h-5 mr-2 text-indigo-600" />
              Analysis Configuration
           </h3>
@@ -89,7 +89,7 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ inventory, sales }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
              {/* Time Range */}
              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-3 flex items-center">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center">
                     <Calendar className="w-4 h-4 mr-1" /> Time Period
                 </label>
                 <div className="flex flex-wrap gap-2 mb-3">
@@ -100,7 +100,7 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ inventory, sales }) => {
                             className={`px-3 py-2 text-xs font-medium rounded-lg transition-colors border ${
                                 timeRange === r 
                                 ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm' 
-                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-900'
                             }`}
                         >
                             {r === 'all' ? 'All Time' : `Last ${r.replace('days', ' Days')}`}
@@ -111,7 +111,7 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ inventory, sales }) => {
                         className={`px-3 py-2 text-xs font-medium rounded-lg transition-colors border ${
                             timeRange === 'custom'
                             ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm' 
-                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-900'
                         }`}
                     >
                         Custom Range
@@ -119,17 +119,17 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ inventory, sales }) => {
                 </div>
                 
                 {timeRange === 'custom' && (
-                    <div className="flex items-center gap-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                    <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-slate-700/50">
                         <input 
                             type="date" 
-                            className="text-sm border-slate-300 rounded-md p-1.5 focus:ring-indigo-500 focus:border-indigo-500"
+                            className="text-sm border-slate-300 dark:border-slate-600 rounded-md p-1.5 focus:ring-indigo-500 focus:border-indigo-500"
                             value={customStart}
                             onChange={e => setCustomStart(e.target.value)}
                         />
                         <span className="text-slate-400">-</span>
                         <input 
                             type="date" 
-                            className="text-sm border-slate-300 rounded-md p-1.5 focus:ring-indigo-500 focus:border-indigo-500"
+                            className="text-sm border-slate-300 dark:border-slate-600 rounded-md p-1.5 focus:ring-indigo-500 focus:border-indigo-500"
                             value={customEnd}
                             onChange={e => setCustomEnd(e.target.value)}
                         />
@@ -139,11 +139,11 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ inventory, sales }) => {
 
              {/* Custom Question */}
              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-3 flex items-center">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center">
                     <MessageSquare className="w-4 h-4 mr-1" /> Specific Question (Optional)
                 </label>
                 <textarea
-                    className="w-full bg-blue-50 border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-3 border"
+                    className="w-full bg-blue-50 border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-3 border"
                     rows={3}
                     placeholder="e.g., Which product category has the highest profit margin? or Why are sales low this week?"
                     value={customQuestion}
@@ -152,7 +152,7 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ inventory, sales }) => {
              </div>
           </div>
 
-          <div className="mt-6 pt-6 border-t border-slate-100 flex justify-end">
+          <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-700/50 flex justify-end">
              <button
                 onClick={handleAnalyze}
                 disabled={loading}
@@ -174,12 +174,12 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ inventory, sales }) => {
        </div>
 
       {analysis && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 animate-fade-in">
-          <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 animate-fade-in">
+          <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-6 flex items-center">
             <span className="w-2 h-8 bg-indigo-500 rounded-full mr-3"></span>
             Analysis Result
           </h3>
-          <div className="prose prose-slate max-w-none prose-headings:text-slate-800 prose-p:text-slate-600 prose-strong:text-indigo-700 prose-li:text-slate-600">
+          <div className="prose prose-slate max-w-none prose-headings:text-slate-800 dark:text-slate-100 prose-p:text-slate-600 dark:text-slate-300 prose-strong:text-indigo-700 prose-li:text-slate-600 dark:text-slate-300">
              <ReactMarkdown>{analysis}</ReactMarkdown>
           </div>
         </div>

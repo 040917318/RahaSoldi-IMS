@@ -145,30 +145,30 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Metrics Column */}
         <div className="space-y-4">
-             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-between">
                 <div>
-                    <p className="text-sm font-medium text-slate-500">Total Expenses</p>
-                    <h3 className="text-2xl font-bold text-slate-800 mt-1">{currencySymbol}{totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2 })}</h3>
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Expenses</p>
+                    <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">{currencySymbol}{totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2 })}</h3>
                 </div>
                 <div className="p-3 bg-red-100 rounded-lg">
                     <CediSign className="w-6 h-6 text-red-600" />
                 </div>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-between">
                 <div>
-                    <p className="text-sm font-medium text-slate-500">Avg. Transaction</p>
-                    <h3 className="text-xl font-bold text-slate-800 mt-1">{currencySymbol}{avgExpense.toLocaleString(undefined, { minimumFractionDigits: 2 })}</h3>
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Avg. Transaction</p>
+                    <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">{currencySymbol}{avgExpense.toLocaleString(undefined, { minimumFractionDigits: 2 })}</h3>
                 </div>
                 <div className="p-3 bg-blue-100 rounded-lg">
                     <TrendingUp className="w-6 h-6 text-blue-600" />
                 </div>
             </div>
 
-             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-between">
                 <div>
-                    <p className="text-sm font-medium text-slate-500">Highest Category</p>
-                    <h3 className="text-xl font-bold text-slate-800 mt-1 truncate max-w-[150px]">{topCategory}</h3>
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Highest Category</p>
+                    <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1 truncate max-w-[150px]">{topCategory}</h3>
                 </div>
                 <div className="p-3 bg-indigo-100 rounded-lg">
                     <PieIcon className="w-6 h-6 text-indigo-600" />
@@ -177,8 +177,8 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
         </div>
 
         {/* Breakdown Chart */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-1">
-             <h3 className="text-sm font-bold text-slate-700 mb-4">Category Breakdown</h3>
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 lg:col-span-1">
+             <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-4">Category Breakdown</h3>
              <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -203,8 +203,8 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
         </div>
 
          {/* Daily Trend Chart */}
-         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-1 hidden lg:block">
-             <h3 className="text-sm font-bold text-slate-700 mb-4">Daily Trend (Recent)</h3>
+         <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 lg:col-span-1 hidden lg:block">
+             <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-4">Daily Trend (Recent)</h3>
              <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={dailyData}>
@@ -222,7 +222,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
       </div>
 
       {/* Action & Filter Bar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col lg:flex-row gap-4 items-end lg:items-center justify-between">
+      <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col lg:flex-row gap-4 items-end lg:items-center justify-between">
             <div className="flex flex-col md:flex-row gap-2 w-full lg:w-auto">
                  {/* Search */}
                 <div className="relative w-full md:w-48">
@@ -231,7 +231,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                     </div>
                     <input
                         type="text"
-                        className="block w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="block w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                         placeholder="Search..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -242,7 +242,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                 <select 
                     value={selectedCategory} 
                     onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="block w-full md:w-36 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="block w-full md:w-36 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                     <option value="All">All Categories</option>
                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
@@ -251,14 +251,14 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                 <div className="flex gap-2">
                     <input
                         type="date"
-                        className="block w-full md:w-auto px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="block w-full md:w-auto px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
                         placeholder="Start Date"
                     />
                     <input
                         type="date"
-                        className="block w-full md:w-auto px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="block w-full md:w-auto px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
                         placeholder="End Date"
@@ -279,7 +279,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                 <button
                     onClick={handleExportCSV}
                     disabled={filteredExpenses.length === 0}
-                    className="flex-1 lg:flex-none flex items-center justify-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50 focus:outline-none shadow-sm disabled:opacity-50"
+                    className="flex-1 lg:flex-none flex items-center justify-center px-4 py-2 border border-slate-300 dark:border-slate-600 text-sm font-medium rounded-lg text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-900 focus:outline-none shadow-sm disabled:opacity-50"
                 >
                     <Download className="h-4 w-4 mr-2" />
                     Export CSV
@@ -296,13 +296,13 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
 
       {/* Add Expense Form */}
       {isFormOpen && (
-        <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 animate-fade-in shadow-inner">
-            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+        <div className="bg-slate-50 dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-700 animate-fade-in shadow-inner">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center">
                 <Plus className="w-5 h-5 mr-2 text-primary" /> Record New Expense
             </h3>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                 <div className="lg:col-span-2">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Description</label>
                     <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Tag className="h-4 w-4 text-slate-400" />
@@ -310,7 +310,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                         <input
                             type="text"
                             required
-                            className="block w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-primary focus:border-primary"
+                            className="block w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-primary focus:border-primary"
                             placeholder="e.g. Shop Rent for March"
                             value={formData.description}
                             onChange={(e) => setFormData({...formData, description: e.target.value})}
@@ -318,7 +318,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                     </div>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Amount</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Amount</label>
                     <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <span className="text-slate-400 font-bold">{currencySymbol}</span>
@@ -328,17 +328,17 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                             min="0"
                             step="0.01"
                             required
-                            className="block w-full pl-8 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-primary focus:border-primary"
+                            className="block w-full pl-8 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-primary focus:border-primary"
                             value={formData.amount}
                             onChange={(e) => setFormData({...formData, amount: e.target.value})}
                         />
                     </div>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Category</label>
                     <select
                         required
-                        className="block w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-primary focus:border-primary"
+                        className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-primary focus:border-primary"
                         value={formData.category}
                         onChange={(e) => setFormData({...formData, category: e.target.value})}
                     >
@@ -347,12 +347,12 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                     </select>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Date</label>
                     <div className="relative">
                         <input
                             type="date"
                             required
-                            className="block w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-primary focus:border-primary"
+                            className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-primary focus:border-primary"
                             value={formData.date}
                             onChange={(e) => setFormData({...formData, date: e.target.value})}
                         />
@@ -368,27 +368,27 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
       )}
 
       {/* Expenses Table (Desktop) */}
-      <div className="hidden md:block bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
+      <div className="hidden md:block bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+            <thead className="bg-slate-50 dark:bg-slate-900">
                 <tr>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Description</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Category</th>
-                    <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Description</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Category</th>
+                    <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Amount</th>
                 </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                 {filteredExpenses.map((expense) => (
-                    <tr key={expense.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                    <tr key={expense.id} className="hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-900 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">
                             {new Date(expense.date).toLocaleDateString()}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-800">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-800 dark:text-slate-100">
                             {expense.description}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                            <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                                 {expense.category}
                             </span>
                         </td>
@@ -399,7 +399,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                 ))}
                 {filteredExpenses.length === 0 && (
                     <tr>
-                        <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
+                        <td colSpan={4} className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
                             <div className="flex flex-col items-center justify-center">
                                 <Filter className="w-8 h-8 text-slate-300 mb-2" />
                                 <p>No expenses found matching current filters.</p>
@@ -414,9 +414,9 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
       {/* Expenses List (Mobile) */}
       <div className="md:hidden space-y-4">
         {filteredExpenses.map((expense) => (
-            <div key={expense.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div key={expense.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
                 <div className="flex justify-between items-start mb-2">
-                    <span className="text-xs text-slate-500 flex items-center">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center">
                         <Calendar className="w-3 h-3 mr-1" />
                         {new Date(expense.date).toLocaleDateString()}
                     </span>
@@ -424,18 +424,18 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                         -{currencySymbol}{expense.amount.toFixed(2)}
                     </span>
                 </div>
-                <div className="mb-2 font-medium text-slate-800">
+                <div className="mb-2 font-medium text-slate-800 dark:text-slate-100">
                     {expense.description}
                 </div>
                 <div className="flex items-center">
-                    <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                    <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                         {expense.category}
                     </span>
                 </div>
             </div>
         ))}
          {filteredExpenses.length === 0 && (
-            <div className="text-center py-10 text-slate-500">
+            <div className="text-center py-10 text-slate-500 dark:text-slate-400">
                 <div className="flex flex-col items-center justify-center">
                     <Filter className="w-8 h-8 text-slate-300 mb-2" />
                     <p>No expenses found.</p>

@@ -295,12 +295,12 @@ export const DeepAnalytics: React.FC<DeepAnalyticsProps> = ({ inventory, sales, 
              </div>
              <div>
                 <h1 className="text-lg font-bold tracking-wider text-slate-100">DEEP ANALYTICS</h1>
-                <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em]">Raha Soldi Intelligence</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Raha Soldi Intelligence</p>
              </div>
           </div>
 
           <div className="flex-1 max-w-xl mx-8 relative group">
-             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-600 group-focus-within:text-blue-400 transition-colors" />
+             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-600 dark:text-slate-300 group-focus-within:text-blue-400 transition-colors" />
              <input 
                 type="text" 
                 placeholder="Search entities, transaction IDs, or SKU codes..." 
@@ -315,7 +315,7 @@ export const DeepAnalytics: React.FC<DeepAnalyticsProps> = ({ inventory, sales, 
                 <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
                 SYSTEM ONLINE
              </div>
-             <div className="text-slate-500">
+             <div className="text-slate-500 dark:text-slate-400">
                 {new Date().toLocaleTimeString()}
              </div>
           </div>
@@ -340,7 +340,7 @@ export const DeepAnalytics: React.FC<DeepAnalyticsProps> = ({ inventory, sales, 
                              <span className={`font-bold ${signal.type === 'critical' ? 'text-red-400' : 'text-amber-400'}`}>
                                 {signal.type.toUpperCase()}
                              </span>
-                             <span className="text-slate-600">{new Date(signal.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                             <span className="text-slate-600 dark:text-slate-300">{new Date(signal.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                         </div>
                         <p className="pl-2 text-slate-400 leading-relaxed">
                             {signal.message}
@@ -348,7 +348,7 @@ export const DeepAnalytics: React.FC<DeepAnalyticsProps> = ({ inventory, sales, 
                     </div>
                 ))}
                 {signals.length === 0 && (
-                    <div className="text-center py-10 text-slate-600 text-sm">
+                    <div className="text-center py-10 text-slate-600 dark:text-slate-300 text-sm">
                         No active anomalies detected.
                     </div>
                 )}
@@ -379,7 +379,7 @@ export const DeepAnalytics: React.FC<DeepAnalyticsProps> = ({ inventory, sales, 
                  
                  {/* Empty State / Legend */}
                  <div className="absolute bottom-4 left-4 pointer-events-none">
-                     <div className="flex items-center space-x-4 text-[10px] text-slate-500">
+                     <div className="flex items-center space-x-4 text-[10px] text-slate-500 dark:text-slate-400">
                          <div className="flex items-center"><span className="w-2 h-2 rounded-full bg-sky-500 mr-1 shadow shadow-sky-500"></span> Category</div>
                          <div className="flex items-center"><span className="w-2 h-2 rounded-full bg-emerald-500 mr-1 shadow shadow-emerald-500"></span> Product</div>
                          <div className="flex items-center"><span className="w-2 h-2 rounded-full bg-amber-500 mr-1 shadow shadow-amber-500"></span> Sale</div>
@@ -449,7 +449,7 @@ export const DeepAnalytics: React.FC<DeepAnalyticsProps> = ({ inventory, sales, 
                             <div>
                                 <div className="text-[10px] uppercase text-blue-500 font-bold mb-1 tracking-wider">{selectedNode.type}</div>
                                 <h2 className="text-xl font-bold text-white leading-tight">{selectedNode.label}</h2>
-                                <div className="text-slate-500 text-xs mt-1 font-mono">{selectedNode.id}</div>
+                                <div className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-mono">{selectedNode.id}</div>
                             </div>
                             {/* Icon based on type */}
                             <div className="p-3 bg-slate-800 rounded-lg border border-slate-700">
@@ -467,13 +467,13 @@ export const DeepAnalytics: React.FC<DeepAnalyticsProps> = ({ inventory, sales, 
                                          if (key === 'items' || typeof value === 'object') return null; // Skip complex objects
                                          return (
                                              <tr key={key}>
-                                                 <td className="px-3 py-2 bg-slate-900 text-slate-500 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</td>
+                                                 <td className="px-3 py-2 bg-slate-900 text-slate-500 dark:text-slate-400 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</td>
                                                  <td className="px-3 py-2 text-slate-300 font-mono text-right">{String(value)}</td>
                                              </tr>
                                          );
                                      })}
                                      {!selectedNode.data && (
-                                         <tr><td className="p-3 text-center text-slate-500">No additional metadata</td></tr>
+                                         <tr><td className="p-3 text-center text-slate-500 dark:text-slate-400">No additional metadata</td></tr>
                                      )}
                                  </tbody>
                              </table>
@@ -497,7 +497,7 @@ export const DeepAnalytics: React.FC<DeepAnalyticsProps> = ({ inventory, sales, 
                                      {(selectedNode.data.items as any[]).map((item, i) => (
                                          <div key={i} className="flex justify-between items-center text-xs p-2 bg-slate-800/50 rounded border border-slate-800">
                                              <span className="text-slate-300">{item.name}</span>
-                                             <span className="font-mono text-slate-500">x{item.quantity}</span>
+                                             <span className="font-mono text-slate-500 dark:text-slate-400">x{item.quantity}</span>
                                          </div>
                                      ))}
                                  </div>
@@ -505,7 +505,7 @@ export const DeepAnalytics: React.FC<DeepAnalyticsProps> = ({ inventory, sales, 
                          )}
                      </div>
                  ) : (
-                     <div className="h-full flex flex-col items-center justify-center text-slate-600 opacity-50">
+                     <div className="h-full flex flex-col items-center justify-center text-slate-600 dark:text-slate-300 opacity-50">
                          <Target className="w-12 h-12 mb-4" />
                          <p className="text-sm text-center px-4">Select a node in the network graph to inspect details.</p>
                      </div>
