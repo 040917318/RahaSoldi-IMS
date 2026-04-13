@@ -11,7 +11,6 @@ const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ 
 const InventoryManager = lazy(() => import('./components/InventoryManager').then(module => ({ default: module.InventoryManager })));
 const SalesTerminal = lazy(() => import('./components/SalesTerminal').then(module => ({ default: module.SalesTerminal })));
 const SalesHistory = lazy(() => import('./components/SalesHistory').then(module => ({ default: module.SalesHistory })));
-const ExpensesManager = lazy(() => import('./components/ExpensesManager').then(module => ({ default: module.ExpensesManager })));
 const FinancialReport = lazy(() => import('./components/FinancialReport').then(module => ({ default: module.FinancialReport })));
 const AIInsights = lazy(() => import('./components/AIInsights').then(module => ({ default: module.AIInsights })));
 const InvoiceReceiptGenerator = lazy(() => import('./components/InvoiceReceiptGenerator').then(module => ({ default: module.InvoiceReceiptGenerator })));
@@ -60,7 +59,6 @@ const App: React.FC = () => {
   // Data State
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [sales, setSales] = useState<SaleRecord[]>([]);
-  const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
   // Dark Mode Effect
@@ -134,7 +132,6 @@ const App: React.FC = () => {
     };
     loadLocal('inventory', setInventory);
     loadLocal('sales', setSales);
-    loadLocal('expenses', setExpenses);
     
     // Check pending actions
     const queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
@@ -195,12 +192,6 @@ const App: React.FC = () => {
                              }
                         }
                         break;
-                    case 'ADD_EXPENSE':
-                        await supabase.from('expenses').insert([action.payload]);
-                        break;
-                    case 'DELETE_EXPENSE':
-                        await supabase.from('expenses').delete().eq('id', action.payload.id);
-                        break;
                 }
                 success = true;
             } catch (err) {
@@ -250,14 +241,6 @@ const App: React.FC = () => {
       if (salesData) {
           setSales(salesData);
           persist('sales', salesData);
-      }
-
-      // Fetch Expenses
-      const { data: expData, error: expError } = await supabase.from('expenses').select('*').order('date', { ascending: false });
-      if (expError) throw expError;
-      if (expData) {
-          setExpenses(expData);
-          persist('expenses', expData);
       }
       
     } catch (error) {
@@ -418,46 +401,6 @@ const App: React.FC = () => {
     return newSale;
   };
 
-  const handleAddExpense = async (expense: Omit<ExpenseRecord, 'id' | 'recordedAt'>) => {
-    const newExpense: ExpenseRecord = { ...expense, id: crypto.randomUUID(), recordedAt: new Date().toISOString() };
-
-    const newExpenses = [newExpense, ...expenses];
-    setExpenses(newExpenses);
-    persist('expenses', newExpenses);
-
-    if (!isOnline) {
-        queueAction({ type: 'ADD_EXPENSE', payload: newExpense });
-        return;
-    }
-
-    try {
-      const { error } = await supabase.from('expenses').insert([newExpense]);
-      if (error) throw error;
-    } catch (err) {
-      console.error("Error adding expense:", err);
-    }
-  };
-
-  const handleDeleteExpense = async (id: string) => {
-    if (window.confirm('Delete this expense record?')) {
-      const newExpenses = expenses.filter(e => e.id !== id);
-      setExpenses(newExpenses);
-      persist('expenses', newExpenses);
-
-      if (!isOnline) {
-          queueAction({ type: 'DELETE_EXPENSE', payload: { id } });
-          return;
-      }
-
-      try {
-        const { error } = await supabase.from('expenses').delete().eq('id', id);
-        if (error) throw error;
-      } catch (err) {
-        console.error("Error deleting expense:", err);
-      }
-    }
-  };
-
   const handleSignOut = async () => {
     await supabase.auth.signOut();
   };
@@ -514,7 +457,6 @@ const App: React.FC = () => {
           {userRole === 'admin' && (
             <>
               <NavItem view="invoices" icon={FileText} label="Invoices & Receipts" />
-              <NavItem view="expenses" icon={CediSign} label="Expenses" />
               <NavItem view="financials" icon={PieChart} label="Financial Reports" />
               <NavItem view="insights" icon={BrainCircuit} label="AI Insights" />
             </>
@@ -574,7 +516,6 @@ const App: React.FC = () => {
           {userRole === 'admin' && (
             <>
               <NavItem view="invoices" icon={FileText} label="Invoices & Receipts" />
-              <NavItem view="expenses" icon={CediSign} label="Expenses" />
               <NavItem view="financials" icon={PieChart} label="Financial Reports" />
               <NavItem view="insights" icon={BrainCircuit} label="AI Insights" />
             </>
@@ -602,7 +543,6 @@ const App: React.FC = () => {
                 {activeView === 'inventory' && 'Inventory Management'}
                 {activeView === 'pos' && 'New Sale'}
                 {activeView === 'history' && 'Transaction History'}
-                {activeView === 'expenses' && 'Expense Management'}
                 {activeView === 'financials' && 'Financial Health'}
                 {activeView === 'insights' && 'Business Intelligence'}
                 {activeView === 'invoices' && 'Invoices & Receipts'}
@@ -612,7 +552,6 @@ const App: React.FC = () => {
                 {activeView === 'inventory' && 'Manage your stock and pricing.'}
                 {activeView === 'pos' && 'Process transactions quickly.'}
                 {activeView === 'history' && 'Review past sales and performance.'}
-                {activeView === 'expenses' && 'Track operational costs.'}
                 {activeView === 'financials' && 'Analyze Profit & Loss and Balance Sheet.'}
                 {activeView === 'insights' && 'AI-powered recommendations.'}
                 {activeView === 'invoices' && 'Generate custom invoices and receipts.'}
@@ -647,8 +586,7 @@ const App: React.FC = () => {
                     {activeView === 'inventory' && <InventoryManager inventory={inventory} onAdd={handleAddItem} onUpdate={handleUpdateItem} onDelete={handleDeleteItem} currencySymbol="GH₵" userRole={userRole} auditLogs={auditLogs} />}
                     {activeView === 'pos' && <SalesTerminal inventory={inventory} onCompleteSale={handleCompleteSale} currencySymbol="GH₵" />}
                     {activeView === 'history' && <SalesHistory sales={sales} currencySymbol="GH₵" />}
-                    {userRole === 'admin' && activeView === 'expenses' && <ExpensesManager expenses={expenses} onAdd={handleAddExpense} currencySymbol="GH₵" />}
-                    {userRole === 'admin' && activeView === 'financials' && <FinancialReport inventory={inventory} sales={sales} expenses={expenses} currencySymbol="GH₵" />}
+                    {userRole === 'admin' && activeView === 'financials' && <FinancialReport inventory={inventory} sales={sales} currencySymbol="GH₵" />}
                     {userRole === 'admin' && activeView === 'insights' && <AIInsights inventory={inventory} sales={sales} />}
                     {userRole === 'admin' && activeView === 'invoices' && (
                       <InvoiceReceiptGenerator 

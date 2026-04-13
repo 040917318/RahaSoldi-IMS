@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useRef } from 'react';
-import { InventoryItem, SaleRecord, ExpenseRecord } from '../types';
+import { InventoryItem, SaleRecord } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ComposedChart, Line, AreaChart, Area } from 'recharts';
 import { TrendingUp, TrendingDown, Scale, Wallet, Calendar, Filter, Percent, DollarSign, Activity, Tag, Download, Printer, FileText, Loader2, Package } from 'lucide-react';
 import { exportToCSV } from '../utils';
@@ -11,11 +11,10 @@ import { useReactToPrint } from 'react-to-print';
 interface FinancialReportProps {
   inventory: InventoryItem[];
   sales: SaleRecord[];
-  expenses: ExpenseRecord[];
   currencySymbol: string;
 }
 
-export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sales, expenses, currencySymbol }) => {
+export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sales, currencySymbol }) => {
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y' | 'all'>('30d');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
@@ -64,7 +63,7 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
   };
 
   // 1. Filter Data based on Time Range
-  const { filteredSales, filteredExpenses } = useMemo(() => {
+  const { filteredSales } = useMemo(() => {
     const now = new Date();
     const getStartDate = () => {
       const d = new Date();
@@ -82,14 +81,13 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
     const startDate = getStartDate();
     
     const fSales = sales.filter(s => new Date(s.timestamp) >= startDate);
-    const fExpenses = expenses.filter(e => new Date(e.date) >= startDate);
     
-    return { filteredSales: fSales, filteredExpenses: fExpenses };
-  }, [sales, expenses, timeRange]);
+    return { filteredSales: fSales };
+  }, [sales, timeRange]);
 
   // 2. Aggregate Data for Timeline Charts
   const chartData = useMemo(() => {
-    const dataMap = new Map<string, { date: string, revenue: number, expense: number, grossProfit: number, netIncome: number, discount: number }>();
+    const dataMap = new Map<string, { date: string, revenue: number, grossProfit: number, netIncome: number, discount: number }>();
     
     // Helper to format date key (YYYY-MM-DD)
     const getDateKey = (dateStr: string) => dateStr.split('T')[0];
@@ -100,7 +98,7 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
     // Process Sales
     filteredSales.forEach(sale => {
       const key = getDateKey(sale.timestamp);
-      if (!dataMap.has(key)) dataMap.set(key, { date: key, revenue: 0, expense: 0, grossProfit: 0, netIncome: 0, discount: 0 });
+      if (!dataMap.has(key)) dataMap.set(key, { date: key, revenue: 0, grossProfit: 0, netIncome: 0, discount: 0 });
       
       const current = dataMap.get(key)!;
       const saleDiscount = sale.items.reduce((sum, i) => sum + (i.discount || 0), 0);
@@ -108,23 +106,12 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
       current.revenue += sale.totalAmount;
       current.grossProfit += sale.totalProfit;
       current.discount += saleDiscount;
-      // Net Income calc starts with Gross Profit, subtracts expenses later
       current.netIncome += sale.totalProfit; 
-    });
-
-    // Process Expenses
-    filteredExpenses.forEach(exp => {
-      const key = getDateKey(exp.date);
-      if (!dataMap.has(key)) dataMap.set(key, { date: key, revenue: 0, expense: 0, grossProfit: 0, netIncome: 0, discount: 0 });
-      
-      const current = dataMap.get(key)!;
-      current.expense += exp.amount;
-      current.netIncome -= exp.amount; // Subtract expenses from net income accumulator
     });
 
     // Convert to array and sort
     return Array.from(dataMap.values()).sort((a, b) => a.date.localeCompare(b.date));
-  }, [filteredSales, filteredExpenses]);
+  }, [filteredSales]);
 
   // 3. Calculate Summary Metrics for the period
   const metrics = useMemo(() => {
@@ -135,12 +122,10 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
     const totalGrossProfit = filteredSales.reduce((acc, s) => acc + s.totalProfit, 0);
     const totalCOGS = totalRevenue - totalGrossProfit; 
     
-    const totalExpenses = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
-    const netIncome = totalGrossProfit - totalExpenses;
+    const netIncome = totalGrossProfit;
 
     const grossMargin = totalRevenue > 0 ? (totalGrossProfit / totalRevenue) * 100 : 0;
     const netMargin = totalRevenue > 0 ? (netIncome / totalRevenue) * 100 : 0;
-    const expenseRatio = totalRevenue > 0 ? (totalExpenses / totalRevenue) * 100 : 0;
 
     // Static Asset Value (Current Inventory)
     const inventoryValue = inventory.reduce((acc, i) => acc + (i.costPrice * i.quantity), 0);
@@ -166,20 +151,17 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
       totalDiscount,
       totalGrossProfit,
       totalCOGS,
-      totalExpenses,
       netIncome,
       grossMargin,
       netMargin,
-      expenseRatio,
       inventoryValue,
       topItems
     };
-  }, [filteredSales, filteredExpenses, inventory]);
+  }, [filteredSales, inventory]);
 
   const pnlData = [
     { name: 'Revenue', amount: metrics.totalRevenue, fill: '#3b82f6' },
     { name: 'COGS', amount: metrics.totalCOGS, fill: '#f59e0b' },
-    { name: 'Expenses', amount: metrics.totalExpenses, fill: '#ef4444' },
     { name: 'Net Profit', amount: metrics.netIncome, fill: metrics.netIncome >= 0 ? '#10b981' : '#dc2626' }
   ];
 
@@ -228,11 +210,9 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
                   ['Total Discounts', metrics.totalDiscount.toFixed(2)],
                   ['Gross Profit', metrics.totalGrossProfit.toFixed(2)],
                   ['Cost of Goods Sold (COGS)', metrics.totalCOGS.toFixed(2)],
-                  ['Operating Expenses', metrics.totalExpenses.toFixed(2)],
                   ['Net Income', metrics.netIncome.toFixed(2)],
                   ['Gross Margin (%)', metrics.grossMargin.toFixed(2)],
                   ['Net Margin (%)', metrics.netMargin.toFixed(2)],
-                  ['Expense Ratio (%)', metrics.expenseRatio.toFixed(2)],
                   ['Inventory Value', metrics.inventoryValue.toFixed(2)]
                 ];
                 exportToCSV(`financial_report_${timeRange}_${new Date().toISOString().split('T')[0]}.csv`, rows);
@@ -299,17 +279,6 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
            <p className="text-xs text-slate-400 mt-2">Net Margin: {metrics.netMargin.toFixed(1)}%</p>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700/50 border-l-4 border-l-red-500">
-          <div className="flex justify-between items-start">
-             <div>
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Op. Expenses</p>
-                <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{currencySymbol}{metrics.totalExpenses.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
-             </div>
-             <div className="p-2 bg-red-50 rounded-lg"><Wallet className="w-5 h-5 text-red-600" /></div>
-          </div>
-          <p className="text-xs text-slate-400 mt-2">Ratio to Rev: {metrics.expenseRatio.toFixed(1)}%</p>
-        </div>
-
         <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700/50 border-l-4 border-l-purple-500">
           <div className="flex justify-between items-start">
              <div>
@@ -349,7 +318,6 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
                         />
                         <Legend wrapperStyle={{ paddingTop: '20px' }} />
                         <Bar dataKey="revenue" name="Revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} />
-                        <Bar dataKey="expense" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={20} />
                         <Line type="monotone" dataKey="netIncome" name="Net Profit" stroke="#10b981" strokeWidth={3} dot={false} />
                     </ComposedChart>
                 </ResponsiveContainer>
