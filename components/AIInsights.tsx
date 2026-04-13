@@ -122,14 +122,14 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ inventory, sales }) => {
                     <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-slate-700/50">
                         <input 
                             type="date" 
-                            className="text-sm border-slate-300 dark:border-slate-600 rounded-md p-1.5 focus:ring-indigo-500 focus:border-indigo-500"
+                            className="text-sm border-slate-300 dark:border-slate-600 rounded-md p-1.5 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                             value={customStart}
                             onChange={e => setCustomStart(e.target.value)}
                         />
                         <span className="text-slate-400">-</span>
                         <input 
                             type="date" 
-                            className="text-sm border-slate-300 dark:border-slate-600 rounded-md p-1.5 focus:ring-indigo-500 focus:border-indigo-500"
+                            className="text-sm border-slate-300 dark:border-slate-600 rounded-md p-1.5 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                             value={customEnd}
                             onChange={e => setCustomEnd(e.target.value)}
                         />
@@ -143,7 +143,7 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ inventory, sales }) => {
                     <MessageSquare className="w-4 h-4 mr-1" /> Specific Question (Optional)
                 </label>
                 <textarea
-                    className="w-full bg-blue-50 border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-3 border"
+                    className="w-full bg-blue-50 dark:bg-slate-800 border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-3 border text-slate-900 dark:text-slate-100"
                     rows={3}
                     placeholder="e.g., Which product category has the highest profit margin? or Why are sales low this week?"
                     value={customQuestion}

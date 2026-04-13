@@ -36,23 +36,6 @@ export interface ExpenseRecord {
   recordedAt: string;
 }
 
-export interface PurchaseOrderItem {
-  itemId: string;
-  name: string;
-  quantity: number;
-  unitCost: number;
-}
-
-export interface PurchaseOrder {
-  id: string;
-  supplier: string;
-  date: string;
-  status: 'ordered' | 'received' | 'cancelled';
-  items: PurchaseOrderItem[];
-  totalCost: number;
-  notes?: string;
-}
-
 export interface AuditLog {
   id: string;
   itemId: string;
@@ -63,7 +46,7 @@ export interface AuditLog {
   timestamp: string;
 }
 
-export type ViewState = 'dashboard' | 'inventory' | 'pos' | 'history' | 'expenses' | 'financials' | 'insights' | 'purchases';
+export type ViewState = 'dashboard' | 'inventory' | 'pos' | 'history' | 'expenses' | 'financials' | 'insights' | 'invoices';
 
 export type UserRole = 'admin' | 'cashier';
 

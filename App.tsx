@@ -1,18 +1,20 @@
 
-import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Package, ShoppingCart, BrainCircuit, Menu, X, History, Wifi, WifiOff, Loader2, PieChart, Truck, LogOut, Shield, RefreshCw, Moon, Sun } from 'lucide-react';
-import { InventoryManager } from './components/InventoryManager';
-import { SalesTerminal } from './components/SalesTerminal';
-import { Dashboard } from './components/Dashboard';
-import { AIInsights } from './components/AIInsights';
-import { SalesHistory } from './components/SalesHistory';
-import { ExpensesManager } from './components/ExpensesManager';
-import { FinancialReport } from './components/FinancialReport';
-import { PurchaseOrdersManager } from './components/PurchaseOrdersManager';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
+import { LayoutDashboard, Package, ShoppingCart, BrainCircuit, Menu, X, History, Wifi, WifiOff, Loader2, PieChart, Truck, LogOut, Shield, RefreshCw, Moon, Sun, FileText } from 'lucide-react';
 import { Auth } from './components/Auth';
-import { InventoryItem, SaleRecord, SaleItem, ViewState, ExpenseRecord, PurchaseOrder, UserRole, AuditLog } from './types';
+import { InventoryItem, SaleRecord, SaleItem, ViewState, ExpenseRecord, UserRole, AuditLog } from './types';
 import { supabase } from './services/supabaseClient';
 import { Session } from '@supabase/supabase-js';
+
+// Lazy load components for better performance
+const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })));
+const InventoryManager = lazy(() => import('./components/InventoryManager').then(module => ({ default: module.InventoryManager })));
+const SalesTerminal = lazy(() => import('./components/SalesTerminal').then(module => ({ default: module.SalesTerminal })));
+const SalesHistory = lazy(() => import('./components/SalesHistory').then(module => ({ default: module.SalesHistory })));
+const ExpensesManager = lazy(() => import('./components/ExpensesManager').then(module => ({ default: module.ExpensesManager })));
+const FinancialReport = lazy(() => import('./components/FinancialReport').then(module => ({ default: module.FinancialReport })));
+const AIInsights = lazy(() => import('./components/AIInsights').then(module => ({ default: module.AIInsights })));
+const InvoiceReceiptGenerator = lazy(() => import('./components/InvoiceReceiptGenerator').then(module => ({ default: module.InvoiceReceiptGenerator })));
 
 // Custom Cedi Icon Component
 const CediSign = ({ className }: { className?: string }) => (
@@ -45,7 +47,10 @@ const App: React.FC = () => {
   // Dark Mode State
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
-    return saved ? JSON.parse(saved) : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (saved !== null) {
+      return JSON.parse(saved);
+    }
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
   // Offline / Sync State
@@ -56,18 +61,41 @@ const App: React.FC = () => {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [sales, setSales] = useState<SaleRecord[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
   // Dark Mode Effect
   useEffect(() => {
-    localStorage.setItem('darkMode', JSON.stringify(isDarkMode));
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
+      localStorage.setItem('darkMode', 'true');
     } else {
       document.documentElement.classList.remove('dark');
+      localStorage.setItem('darkMode', 'false');
     }
   }, [isDarkMode]);
+
+  // Listen for system theme changes if no explicit preference is set
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      // Only update if the user hasn't explicitly toggled it in this session
+      // For a more robust solution, we'd need a 'system' state, but this helps
+      // if they just open the app and change their OS theme.
+      if (localStorage.getItem('darkMode') === null) {
+        setIsDarkMode(e.matches);
+      }
+    };
+    
+    // Modern browsers use addEventListener
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    } else {
+      // Fallback for older browsers
+      mediaQuery.addListener(handleChange);
+      return () => mediaQuery.removeListener(handleChange);
+    }
+  }, []);
 
   // Connectivity Listeners
   useEffect(() => {
@@ -107,7 +135,6 @@ const App: React.FC = () => {
     loadLocal('inventory', setInventory);
     loadLocal('sales', setSales);
     loadLocal('expenses', setExpenses);
-    loadLocal('purchaseOrders', setPurchaseOrders);
     
     // Check pending actions
     const queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
@@ -174,24 +201,6 @@ const App: React.FC = () => {
                     case 'DELETE_EXPENSE':
                         await supabase.from('expenses').delete().eq('id', action.payload.id);
                         break;
-                    case 'CREATE_PO':
-                         await supabase.from('purchase_orders').insert([action.payload]);
-                         break;
-                    case 'UPDATE_PO_STATUS':
-                        const { id, status, po } = action.payload;
-                        await supabase.from('purchase_orders').update({ status }).eq('id', id);
-                        if (status === 'received' && po.status !== 'received') {
-                             for (const item of po.items) {
-                                 const { data: curr } = await supabase.from('inventory').select('quantity').eq('id', item.itemId).single();
-                                 if(curr) {
-                                     await supabase.from('inventory').update({
-                                         quantity: curr.quantity + item.quantity,
-                                         lastUpdated: new Date().toISOString()
-                                     }).eq('id', item.itemId);
-                                 }
-                             }
-                        }
-                        break;
                 }
                 success = true;
             } catch (err) {
@@ -249,14 +258,6 @@ const App: React.FC = () => {
       if (expData) {
           setExpenses(expData);
           persist('expenses', expData);
-      }
-
-      // Fetch Purchase Orders
-      const { data: poData, error: poError } = await supabase.from('purchase_orders').select('*').order('date', { ascending: false });
-      if (poError) console.warn("Could not fetch POs");
-      else if (poData) {
-          setPurchaseOrders(poData);
-          persist('purchaseOrders', poData);
       }
       
     } catch (error) {
@@ -457,74 +458,6 @@ const App: React.FC = () => {
     }
   };
 
-  const handleCreatePO = async (po: Omit<PurchaseOrder, 'id'>) => {
-    const newPO: PurchaseOrder = { ...po, id: crypto.randomUUID() };
-
-    const newPOs = [newPO, ...purchaseOrders];
-    setPurchaseOrders(newPOs);
-    persist('purchaseOrders', newPOs);
-
-    if (!isOnline) {
-        queueAction({ type: 'CREATE_PO', payload: newPO });
-        return;
-    }
-
-    try {
-      const { error } = await supabase.from('purchase_orders').insert([newPO]);
-      if (error) throw error;
-    } catch (err) {
-      console.error("Error creating PO:", err);
-    }
-  };
-
-  const handleUpdatePOStatus = async (id: string, status: 'received' | 'cancelled') => {
-    const po = purchaseOrders.find(p => p.id === id);
-    if (!po) return;
-
-    const newPOs = purchaseOrders.map(p => p.id === id ? { ...p, status } : p);
-    setPurchaseOrders(newPOs);
-    persist('purchaseOrders', newPOs);
-
-    // Update Inventory Locally if Received
-    if (status === 'received' && po.status !== 'received') {
-        const updatedInventory = [...inventory];
-        for (const item of po.items) {
-           const invIndex = updatedInventory.findIndex(i => i.id === item.itemId);
-           if (invIndex > -1) {
-             updatedInventory[invIndex] = {
-               ...updatedInventory[invIndex],
-               quantity: updatedInventory[invIndex].quantity + item.quantity,
-               lastUpdated: new Date().toISOString()
-             };
-             logAction(item.itemId, item.name, 'restock', `PO Received. Added ${item.quantity}.`);
-           }
-        }
-        setInventory(updatedInventory);
-        persist('inventory', updatedInventory);
-    }
-
-    if (!isOnline) {
-        queueAction({ type: 'UPDATE_PO_STATUS', payload: { id, status, po } });
-        return;
-    }
-
-    try {
-      const { error } = await supabase.from('purchase_orders').update({ status }).eq('id', id);
-      if (error) throw error;
-
-      if (status === 'received' && po.status !== 'received') {
-        for (const item of po.items) {
-           const { data: curr } = await supabase.from('inventory').select('quantity').eq('id', item.itemId).single();
-           if(curr) {
-              await supabase.from('inventory').update({ quantity: curr.quantity + item.quantity, lastUpdated: new Date().toISOString() }).eq('id', item.itemId);
-           }
-        }
-      }
-    } catch (err) {
-      console.error("Error updating PO status:", err);
-    }
-  };
-
   const handleSignOut = async () => {
     await supabase.auth.signOut();
   };
@@ -580,7 +513,7 @@ const App: React.FC = () => {
           
           {userRole === 'admin' && (
             <>
-              <NavItem view="purchases" icon={Truck} label="Purchase Orders" />
+              <NavItem view="invoices" icon={FileText} label="Invoices & Receipts" />
               <NavItem view="expenses" icon={CediSign} label="Expenses" />
               <NavItem view="financials" icon={PieChart} label="Financial Reports" />
               <NavItem view="insights" icon={BrainCircuit} label="AI Insights" />
@@ -640,7 +573,7 @@ const App: React.FC = () => {
           
           {userRole === 'admin' && (
             <>
-              <NavItem view="purchases" icon={Truck} label="Purchase Orders" />
+              <NavItem view="invoices" icon={FileText} label="Invoices & Receipts" />
               <NavItem view="expenses" icon={CediSign} label="Expenses" />
               <NavItem view="financials" icon={PieChart} label="Financial Reports" />
               <NavItem view="insights" icon={BrainCircuit} label="AI Insights" />
@@ -672,7 +605,7 @@ const App: React.FC = () => {
                 {activeView === 'expenses' && 'Expense Management'}
                 {activeView === 'financials' && 'Financial Health'}
                 {activeView === 'insights' && 'Business Intelligence'}
-                {activeView === 'purchases' && 'Supplier Purchase Orders'}
+                {activeView === 'invoices' && 'Invoices & Receipts'}
               </h2>
               <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
                 {activeView === 'dashboard' && 'Welcome back.'}
@@ -682,13 +615,13 @@ const App: React.FC = () => {
                 {activeView === 'expenses' && 'Track operational costs.'}
                 {activeView === 'financials' && 'Analyze Profit & Loss and Balance Sheet.'}
                 {activeView === 'insights' && 'AI-powered recommendations.'}
-                {activeView === 'purchases' && 'Create orders and restock inventory.'}
+                {activeView === 'invoices' && 'Generate custom invoices and receipts.'}
               </p>
             </div>
             <div className="text-right hidden sm:flex items-center space-x-4">
                <button
                  onClick={() => setIsDarkMode(!isDarkMode)}
-                 className="p-2 rounded-full bg-white dark:bg-slate-800 dark:bg-slate-800 text-slate-600 dark:text-slate-300 dark:text-slate-300 hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-700 dark:hover:bg-slate-700 transition-colors shadow-sm border border-slate-200 dark:border-slate-700 dark:border-slate-700"
+                 className="p-2 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-sm border border-slate-200 dark:border-slate-700"
                  title="Toggle Dark Mode"
                >
                  {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
@@ -704,7 +637,12 @@ const App: React.FC = () => {
                      <p>Loading data...</p>
                  </div>
              ) : (
-                <>
+                <Suspense fallback={
+                  <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                    <Loader2 className="w-10 h-10 animate-spin mb-4" />
+                    <p>Loading view...</p>
+                  </div>
+                }>
                     {activeView === 'dashboard' && <Dashboard inventory={inventory} sales={sales} currencySymbol="GH₵" userRole={userRole} />}
                     {activeView === 'inventory' && <InventoryManager inventory={inventory} onAdd={handleAddItem} onUpdate={handleUpdateItem} onDelete={handleDeleteItem} currencySymbol="GH₵" userRole={userRole} auditLogs={auditLogs} />}
                     {activeView === 'pos' && <SalesTerminal inventory={inventory} onCompleteSale={handleCompleteSale} currencySymbol="GH₵" />}
@@ -712,16 +650,13 @@ const App: React.FC = () => {
                     {userRole === 'admin' && activeView === 'expenses' && <ExpensesManager expenses={expenses} onAdd={handleAddExpense} currencySymbol="GH₵" />}
                     {userRole === 'admin' && activeView === 'financials' && <FinancialReport inventory={inventory} sales={sales} expenses={expenses} currencySymbol="GH₵" />}
                     {userRole === 'admin' && activeView === 'insights' && <AIInsights inventory={inventory} sales={sales} />}
-                    {userRole === 'admin' && activeView === 'purchases' && (
-                    <PurchaseOrdersManager 
-                        inventory={inventory} 
-                        purchaseOrders={purchaseOrders} 
-                        onCreateOrder={handleCreatePO} 
-                        onUpdateStatus={handleUpdatePOStatus} 
+                    {userRole === 'admin' && activeView === 'invoices' && (
+                      <InvoiceReceiptGenerator 
+                        sales={sales} 
                         currencySymbol="GH₵" 
-                    />
+                      />
                     )}
-                </>
+                </Suspense>
              )}
           </div>
         </div>

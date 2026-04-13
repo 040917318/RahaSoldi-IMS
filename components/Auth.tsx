@@ -77,7 +77,7 @@ export const Auth: React.FC = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="focus:ring-primary focus:border-primary block w-full pl-10 sm:text-sm border-slate-300 dark:border-slate-600 rounded-lg py-2 border"
+                  className="focus:ring-primary focus:border-primary block w-full pl-10 sm:text-sm border-slate-300 dark:border-slate-600 rounded-lg py-2 border bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                   placeholder="you@rahasoldi.com"
                 />
               </div>
@@ -99,7 +99,7 @@ export const Auth: React.FC = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="focus:ring-primary focus:border-primary block w-full pl-10 sm:text-sm border-slate-300 dark:border-slate-600 rounded-lg py-2 border"
+                  className="focus:ring-primary focus:border-primary block w-full pl-10 sm:text-sm border-slate-300 dark:border-slate-600 rounded-lg py-2 border bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                   placeholder="••••••••"
                 />
               </div>
@@ -119,7 +119,7 @@ export const Auth: React.FC = () => {
                     name="role"
                     value={role}
                     onChange={(e) => setRole(e.target.value as UserRole)}
-                    className="focus:ring-primary focus:border-primary block w-full pl-10 sm:text-sm border-slate-300 dark:border-slate-600 rounded-lg py-2 border bg-white dark:bg-slate-800"
+                    className="focus:ring-primary focus:border-primary block w-full pl-10 sm:text-sm border-slate-300 dark:border-slate-600 rounded-lg py-2 border bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                   >
                     <option value="cashier">Cashier (Restricted Access)</option>
                     <option value="admin">Administrator (Full Access)</option>

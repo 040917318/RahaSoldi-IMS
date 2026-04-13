@@ -406,7 +406,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
                 <input
                   type="text"
                   required
-                  className="w-full border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border"
+                  className="w-full border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
@@ -418,7 +418,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
                   type="text"
                   required
                   list="category-options"
-                  className="w-full border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border"
+                  className="w-full border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                   placeholder="Type or select a category"
@@ -438,7 +438,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
                     min="0"
                     step="0.01"
                     required
-                    className="w-full border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border"
+                    className="w-full border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                     value={formData.costPrice}
                     onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) })}
                   />
@@ -450,7 +450,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
                     min="0"
                     step="0.01"
                     required
-                    className="w-full border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border"
+                    className="w-full border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                     value={formData.salesPrice}
                     onChange={(e) => setFormData({ ...formData, salesPrice: parseFloat(e.target.value) })}
                   />
@@ -464,7 +464,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
                     type="number"
                     min="0"
                     required
-                    className="w-full border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border"
+                    className="w-full border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                     value={formData.quantity}
                     onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
                   />
@@ -475,7 +475,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
                     type="number"
                     min="0"
                     required
-                    className="w-full border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border"
+                    className="w-full border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                     value={formData.lowStockThreshold}
                     onChange={(e) => setFormData({ ...formData, lowStockThreshold: parseInt(e.target.value) || 0 })}
                   />

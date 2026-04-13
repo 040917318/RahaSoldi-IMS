@@ -231,7 +231,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                     </div>
                     <input
                         type="text"
-                        className="block w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="block w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                         placeholder="Search..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -242,7 +242,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                 <select 
                     value={selectedCategory} 
                     onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="block w-full md:w-36 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="block w-full md:w-36 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                 >
                     <option value="All">All Categories</option>
                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
@@ -251,14 +251,14 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                 <div className="flex gap-2">
                     <input
                         type="date"
-                        className="block w-full md:w-auto px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="block w-full md:w-auto px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
                         placeholder="Start Date"
                     />
                     <input
                         type="date"
-                        className="block w-full md:w-auto px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="block w-full md:w-auto px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
                         placeholder="End Date"
@@ -310,7 +310,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                         <input
                             type="text"
                             required
-                            className="block w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-primary focus:border-primary"
+                            className="block w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-primary focus:border-primary bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                             placeholder="e.g. Shop Rent for March"
                             value={formData.description}
                             onChange={(e) => setFormData({...formData, description: e.target.value})}
@@ -328,7 +328,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                             min="0"
                             step="0.01"
                             required
-                            className="block w-full pl-8 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-primary focus:border-primary"
+                            className="block w-full pl-8 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-primary focus:border-primary bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                             value={formData.amount}
                             onChange={(e) => setFormData({...formData, amount: e.target.value})}
                         />
@@ -338,7 +338,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Category</label>
                     <select
                         required
-                        className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-primary focus:border-primary"
+                        className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-primary focus:border-primary bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                         value={formData.category}
                         onChange={(e) => setFormData({...formData, category: e.target.value})}
                     >
@@ -352,7 +352,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                         <input
                             type="date"
                             required
-                            className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-primary focus:border-primary"
+                            className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-primary focus:border-primary bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                             value={formData.date}
                             onChange={(e) => setFormData({...formData, date: e.target.value})}
                         />
@@ -369,7 +369,8 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
 
       {/* Expenses Table (Desktop) */}
       <div className="hidden md:block bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-        <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
             <thead className="bg-slate-50 dark:bg-slate-900">
                 <tr>
                     <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date</th>
@@ -409,6 +410,7 @@ export const ExpensesManager: React.FC<ExpensesManagerProps> = ({ expenses, onAd
                 )}
             </tbody>
         </table>
+        </div>
       </div>
 
       {/* Expenses List (Mobile) */}

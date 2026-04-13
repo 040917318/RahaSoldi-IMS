@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { InventoryItem, SaleItem, SaleRecord } from '../types';
 import { ShoppingCart, Plus, Trash2, CheckCircle, Search, Tag } from 'lucide-react';
-import { ReceiptModal } from './ReceiptModal';
 
 interface SalesTerminalProps {
   inventory: InventoryItem[];
@@ -16,7 +15,6 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [qtyInput, setQtyInput] = useState<number>(1);
   const [successMsg, setSuccessMsg] = useState('');
-  const [completedSale, setCompletedSale] = useState<SaleRecord | null>(null);
 
   // Derive selected product from inventory to ensure we always show current stock levels
   const selectedProduct = useMemo(() => 
@@ -106,11 +104,10 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
-    const sale = await onCompleteSale(cart);
+    await onCompleteSale(cart);
     setCart([]);
     setSuccessMsg('Sale recorded successfully!');
     setSelectedProductId(null); // Clear selection to prevent showing stale data if quantity drops to 0
-    setCompletedSale(sale);
   };
 
   const cartTotal = cart.reduce((acc, item) => acc + (item.quantity * item.priceAtSale) - (item.discount || 0), 0);
@@ -126,7 +123,7 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
               </div>
             <input
               type="text"
-              className="block w-full pl-10 pr-3 py-3 border border-slate-300 dark:border-slate-600 rounded-lg leading-5 bg-white dark:bg-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition duration-150 ease-in-out"
+              className="block w-full pl-10 pr-3 py-3 border border-slate-300 dark:border-slate-600 rounded-lg leading-5 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition duration-150 ease-in-out"
               placeholder="Search product to add..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -172,7 +169,7 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                    >-</button>
                    <input 
                     type="number" 
-                    className="w-16 text-center py-2 focus:outline-none"
+                    className="w-16 text-center py-2 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                     value={qtyInput}
                     onChange={(e) => setQtyInput(parseInt(e.target.value) || 0)}
                    />
@@ -234,7 +231,7 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                             type="number"
                             min="0"
                             placeholder="Discount"
-                            className="w-20 text-xs p-1 border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-primary focus:outline-none"
+                            className="w-20 text-xs p-1 border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-primary focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                             value={item.discount || ''}
                             onChange={(e) => updateDiscount(index, parseFloat(e.target.value) || 0)}
                          />
@@ -272,14 +269,6 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
           )}
         </div>
       </div>
-      
-      {completedSale && (
-        <ReceiptModal
-          sale={completedSale}
-          currencySymbol={currencySymbol}
-          onClose={() => setCompletedSale(null)}
-        />
-      )}
     </div>
   );
 };

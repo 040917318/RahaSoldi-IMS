@@ -2,7 +2,6 @@
 import React, { useState, useMemo } from 'react';
 import { SaleRecord } from '../types';
 import { Search, Eye, FileText, X, ArrowUpCircle, Calendar, ChevronRight, Filter, Download, ArrowUpDown, Printer } from 'lucide-react';
-import { ReceiptModal } from './ReceiptModal';
 
 interface SalesHistoryProps {
   sales: SaleRecord[];
@@ -15,7 +14,6 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
   const [endDate, setEndDate] = useState('');
   const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'>('date-desc');
   const [selectedSale, setSelectedSale] = useState<SaleRecord | null>(null);
-  const [receiptSale, setReceiptSale] = useState<SaleRecord | null>(null);
 
   const filteredSales = useMemo(() => {
     return sales.filter(sale => {
@@ -136,7 +134,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
                     </div>
                     <input
                         type="text"
-                        className="block w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-primary focus:border-primary"
+                        className="block w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-primary focus:border-primary bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                         placeholder="Search item name or Transaction ID..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -148,7 +146,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
                         <ArrowUpDown className="h-4 w-4 text-slate-400" />
                     </div>
                     <select
-                        className="block w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-primary focus:border-primary appearance-none bg-white dark:bg-slate-800"
+                        className="block w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-primary focus:border-primary appearance-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as any)}
                     >
@@ -173,14 +171,14 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
                      <div className="flex items-center gap-2 flex-1">
                         <input
                             type="date"
-                            className="block w-full px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-xs focus:ring-primary focus:border-primary"
+                            className="block w-full px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-xs focus:ring-primary focus:border-primary bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
                         />
                         <span className="text-slate-400">-</span>
                         <input
                             type="date"
-                            className="block w-full px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-xs focus:ring-primary focus:border-primary"
+                            className="block w-full px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-xs focus:ring-primary focus:border-primary bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
                         />
@@ -245,12 +243,6 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm space-x-4">
                             <button 
-                                onClick={(e) => { e.stopPropagation(); setReceiptSale(sale); }}
-                                className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:text-slate-50 inline-flex items-center font-medium"
-                            >
-                                <Printer className="w-4 h-4 mr-1" /> Receipt
-                            </button>
-                            <button 
                                 onClick={() => setSelectedSale(sale)}
                                 className="text-primary hover:text-blue-800 inline-flex items-center font-medium"
                             >
@@ -299,12 +291,6 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
                         {sale.items.reduce((sum, i) => sum + i.quantity, 0)} items
                     </span>
                     <div className="flex items-center space-x-4">
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); setReceiptSale(sale); }}
-                            className="text-slate-600 dark:text-slate-300 text-sm font-medium flex items-center"
-                        >
-                            <Printer className="w-4 h-4 mr-1" /> Receipt
-                        </button>
                         <button className="text-primary text-sm font-medium flex items-center">
                             Details <ChevronRight className="w-4 h-4 ml-1" />
                         </button>
@@ -394,14 +380,6 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
                 </div>
             </div>
         </div>
-      )}
-
-      {receiptSale && (
-        <ReceiptModal
-          sale={receiptSale}
-          currencySymbol={currencySymbol}
-          onClose={() => setReceiptSale(null)}
-        />
       )}
     </div>
   );

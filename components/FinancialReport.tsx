@@ -1,9 +1,12 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { InventoryItem, SaleRecord, ExpenseRecord } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ComposedChart, Line, AreaChart, Area } from 'recharts';
-import { TrendingUp, TrendingDown, Scale, Wallet, Calendar, Filter, Percent, DollarSign, Activity, Tag, Download } from 'lucide-react';
+import { TrendingUp, TrendingDown, Scale, Wallet, Calendar, Filter, Percent, DollarSign, Activity, Tag, Download, Printer, FileText, Loader2, Package } from 'lucide-react';
 import { exportToCSV } from '../utils';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import { useReactToPrint } from 'react-to-print';
 
 interface FinancialReportProps {
   inventory: InventoryItem[];
@@ -14,6 +17,51 @@ interface FinancialReportProps {
 
 export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sales, expenses, currencySymbol }) => {
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y' | 'all'>('30d');
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
+
+  const handlePrint = useReactToPrint({
+    contentRef: reportRef,
+    documentTitle: `Financial_Report_${timeRange}`,
+  });
+
+  const handleDownloadPdf = async () => {
+    if (!reportRef.current) return;
+    setIsGeneratingPdf(true);
+    try {
+      // Temporarily add a class to adjust layout for PDF if needed
+      reportRef.current.classList.add('pdf-exporting');
+      
+      const canvas = await html2canvas(reportRef.current, { 
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+      
+      reportRef.current.classList.remove('pdf-exporting');
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      // If the content is taller than one page, it will scale down to fit width, 
+      // which might make it long. For a simple report, this is usually acceptable.
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Financial_Report_${timeRange}_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   // 1. Filter Data based on Time Range
   const { filteredSales, filteredExpenses } = useMemo(() => {
@@ -97,6 +145,22 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
     // Static Asset Value (Current Inventory)
     const inventoryValue = inventory.reduce((acc, i) => acc + (i.costPrice * i.quantity), 0);
 
+    // Top Selling Items
+    const itemSales: Record<string, { name: string, revenue: number, quantity: number }> = {};
+    filteredSales.forEach(sale => {
+      sale.items.forEach(item => {
+        if (!itemSales[item.itemId]) {
+          itemSales[item.itemId] = { name: item.name, revenue: 0, quantity: 0 };
+        }
+        itemSales[item.itemId].revenue += (item.quantity * item.priceAtSale) - (item.discount || 0);
+        itemSales[item.itemId].quantity += item.quantity;
+      });
+    });
+
+    const topItems = Object.values(itemSales)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+
     return {
       totalRevenue,
       totalDiscount,
@@ -107,7 +171,8 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
       grossMargin,
       netMargin,
       expenseRatio,
-      inventoryValue
+      inventoryValue,
+      topItems
     };
   }, [filteredSales, filteredExpenses, inventory]);
 
@@ -129,7 +194,7 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
     <div className="space-y-6 animate-fade-in">
       
       {/* Header & Controls */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 print:hidden">
         <div>
            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center">
              <Activity className="w-6 h-6 mr-2 text-primary" />
@@ -138,35 +203,52 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
            <p className="text-sm text-slate-500 dark:text-slate-400">Analyze revenue, expenses, and profitability trends.</p>
         </div>
         
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          <button
-            onClick={() => {
-              const rows: (string | number)[][] = [
-                ['Metric', 'Amount'],
-                ['Total Revenue', metrics.totalRevenue.toFixed(2)],
-                ['Total Discounts', metrics.totalDiscount.toFixed(2)],
-                ['Gross Profit', metrics.totalGrossProfit.toFixed(2)],
-                ['Cost of Goods Sold (COGS)', metrics.totalCOGS.toFixed(2)],
-                ['Operating Expenses', metrics.totalExpenses.toFixed(2)],
-                ['Net Income', metrics.netIncome.toFixed(2)],
-                ['Gross Margin (%)', metrics.grossMargin.toFixed(2)],
-                ['Net Margin (%)', metrics.netMargin.toFixed(2)],
-                ['Expense Ratio (%)', metrics.expenseRatio.toFixed(2)],
-                ['Inventory Value', metrics.inventoryValue.toFixed(2)]
-              ];
-              exportToCSV(`financial_report_${timeRange}_${new Date().toISOString().split('T')[0]}.csv`, rows);
-            }}
-            className="flex items-center justify-center px-4 py-1.5 border border-slate-300 dark:border-slate-600 text-sm font-medium rounded-lg text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary shadow-sm w-full sm:w-auto"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
-          </button>
-          <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+          <div className="flex gap-2 w-full sm:w-auto">
+            <button
+              onClick={handlePrint}
+              className="flex-1 sm:flex-none flex items-center justify-center px-4 py-1.5 border border-slate-300 dark:border-slate-600 text-sm font-medium rounded-lg text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary shadow-sm"
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              Print
+            </button>
+            <button
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf}
+              className="flex-1 sm:flex-none flex items-center justify-center px-4 py-1.5 border border-slate-300 dark:border-slate-600 text-sm font-medium rounded-lg text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary shadow-sm disabled:opacity-50"
+            >
+              {isGeneratingPdf ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
+              PDF
+            </button>
+            <button
+              onClick={() => {
+                const rows: (string | number)[][] = [
+                  ['Metric', 'Amount'],
+                  ['Total Revenue', metrics.totalRevenue.toFixed(2)],
+                  ['Total Discounts', metrics.totalDiscount.toFixed(2)],
+                  ['Gross Profit', metrics.totalGrossProfit.toFixed(2)],
+                  ['Cost of Goods Sold (COGS)', metrics.totalCOGS.toFixed(2)],
+                  ['Operating Expenses', metrics.totalExpenses.toFixed(2)],
+                  ['Net Income', metrics.netIncome.toFixed(2)],
+                  ['Gross Margin (%)', metrics.grossMargin.toFixed(2)],
+                  ['Net Margin (%)', metrics.netMargin.toFixed(2)],
+                  ['Expense Ratio (%)', metrics.expenseRatio.toFixed(2)],
+                  ['Inventory Value', metrics.inventoryValue.toFixed(2)]
+                ];
+                exportToCSV(`financial_report_${timeRange}_${new Date().toISOString().split('T')[0]}.csv`, rows);
+              }}
+              className="flex-1 sm:flex-none flex items-center justify-center px-4 py-1.5 border border-slate-300 dark:border-slate-600 text-sm font-medium rounded-lg text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary shadow-sm"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              CSV
+            </button>
+          </div>
+          <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-lg w-full sm:w-auto overflow-x-auto">
              {(['7d', '30d', '90d', '1y', 'all'] as const).map(range => (
                <button
                   key={range}
                   onClick={() => setTimeRange(range)}
-                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all whitespace-nowrap ${
                     timeRange === range 
                       ? 'bg-white dark:bg-slate-800 text-primary shadow-sm' 
                       : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200'
@@ -179,8 +261,20 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Printable Report Container */}
+      <div ref={reportRef} className="print:block bg-slate-50 dark:bg-slate-900 print:bg-white print:text-black space-y-6">
+        
+        {/* Print Header (Only visible in print/pdf) */}
+        <div className="hidden print:block text-center border-b pb-6 mb-6">
+          <h1 className="text-3xl font-bold text-slate-800">Financial Report</h1>
+          <p className="text-slate-500 mt-2">
+            Period: {timeRange === 'all' ? 'All Time' : `Last ${timeRange.replace('d', ' Days').replace('1y', '1 Year')}`}
+          </p>
+          <p className="text-slate-500">Generated on: {new Date().toLocaleDateString()}</p>
+        </div>
+
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700/50 border-l-4 border-l-blue-500">
           <div className="flex justify-between items-start">
             <div>
@@ -344,6 +438,44 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
              </div>
           </div>
       </div>
+
+      {/* Top Selling Products Table */}
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center">
+            <Package className="w-5 h-5 mr-2 text-primary" />
+            Top 5 Products by Revenue
+        </h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-sm">
+                <th className="pb-3 font-medium">Product Name</th>
+                <th className="pb-3 font-medium text-right">Units Sold</th>
+                <th className="pb-3 font-medium text-right">Revenue Generated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {metrics.topItems.length > 0 ? (
+                metrics.topItems.map((item, index) => (
+                  <tr key={index} className="border-b border-slate-100 dark:border-slate-700/50 last:border-0">
+                    <td className="py-3 text-slate-800 dark:text-slate-200 font-medium">{item.name}</td>
+                    <td className="py-3 text-right text-slate-600 dark:text-slate-300">{item.quantity}</td>
+                    <td className="py-3 text-right text-slate-800 dark:text-slate-200 font-bold">
+                      {currencySymbol}{item.revenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={3} className="py-4 text-center text-slate-500">No sales data for this period.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      </div> {/* End of Printable Container */}
     </div>
   );
 };
