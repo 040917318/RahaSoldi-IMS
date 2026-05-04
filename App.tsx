@@ -231,16 +231,18 @@ const App: React.FC = () => {
                         break;
                     case 'DEFER_SALE':
                         const { pendingSale: pSale, items: deferredItems } = action.payload;
-                        await supabase.from('pending_sales').insert([{
-                            id: pSale.id,
-                            customer_name: pSale.customerName,
-                            items: pSale.items,
-                            total_amount: pSale.totalAmount,
-                            total_profit: pSale.totalProfit,
-                            recorded_by: pSale.recordedBy,
-                            timestamp: pSale.timestamp,
-                            notes: pSale.notes
-                        }]);
+                        const pSaleDto = {
+                          id: pSale.id,
+                          customer_name: pSale.customerName,
+                          items: pSale.items,
+                          total_amount: pSale.totalAmount,
+                          total_profit: pSale.totalProfit,
+                          recorded_by: pSale.recordedBy,
+                          timestamp: pSale.timestamp,
+                          notes: pSale.notes
+                        };
+                        const { error: deferErr } = await supabase.from('pending_sales').insert([pSaleDto]);
+                        if (deferErr) throw deferErr;
                         await updateSupabaseInventory(deferredItems);
                         break;
                     case 'COMPLETE_PENDING':
@@ -546,8 +548,14 @@ const App: React.FC = () => {
         const { error } = await supabase.from('pending_sales').insert([pendingSaleDto]);
         if (error) throw error;
         await updateSupabaseInventory(items);
+        // After successful sync, we can optionally fetch to ensure consistency
+        // but avoid clearing local state prematurely
     } catch (err) {
         console.error("Error processing defer sale, queueing for retry:", err);
+        if (isOnline) {
+             // If we are online but it failed (e.g. schema error), queueing might just loop
+             // but it's safer for users so they don't lose data localy.
+        }
         queueAction({ type: 'DEFER_SALE', payload: { pendingSale, items } });
     }
     
