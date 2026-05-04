@@ -230,8 +230,17 @@ const App: React.FC = () => {
                         await updateSupabaseInventory(items);
                         break;
                     case 'DEFER_SALE':
-                        const { pendingSale, items: deferredItems } = action.payload;
-                        await supabase.from('pending_sales').insert([pendingSale]);
+                        const { pendingSale: pSale, items: deferredItems } = action.payload;
+                        await supabase.from('pending_sales').insert([{
+                            id: pSale.id,
+                            customer_name: pSale.customerName,
+                            items: pSale.items,
+                            total_amount: pSale.totalAmount,
+                            total_profit: pSale.totalProfit,
+                            recorded_by: pSale.recordedBy,
+                            timestamp: pSale.timestamp,
+                            notes: pSale.notes
+                        }]);
                         await updateSupabaseInventory(deferredItems);
                         break;
                     case 'COMPLETE_PENDING':
@@ -305,10 +314,22 @@ const App: React.FC = () => {
       }
 
       // Fetch Pending Sales
-      const { data: pendingData } = await supabase.from('pending_sales').select('*').order('timestamp', { ascending: false });
+      const { data: pendingData, error: pendingErr } = await supabase.from('pending_sales').select('*').order('timestamp', { ascending: false });
+      if (pendingErr) throw pendingErr;
+
       if (pendingData) {
-          setPendingSales(pendingData);
-          persist('pendingSales', pendingData);
+          const formattedPending: PendingSale[] = pendingData.map(p => ({
+              id: p.id,
+              customerName: p.customer_name,
+              items: p.items,
+              totalAmount: p.total_amount,
+              totalProfit: p.total_profit,
+              recordedBy: p.recorded_by,
+              timestamp: p.timestamp,
+              notes: p.notes
+          }));
+          setPendingSales(formattedPending);
+          persist('pendingSales', formattedPending);
       }
       
     } catch (error) {
@@ -510,11 +531,24 @@ const App: React.FC = () => {
         return pendingSale;
     }
 
+    const pendingSaleDto = {
+      id: pendingSale.id,
+      customer_name: pendingSale.customerName,
+      items: pendingSale.items,
+      total_amount: pendingSale.totalAmount,
+      total_profit: pendingSale.totalProfit,
+      recorded_by: pendingSale.recordedBy,
+      timestamp: pendingSale.timestamp,
+      notes: pendingSale.notes
+    };
+
     try {
-        await supabase.from('pending_sales').insert([pendingSale]);
+        const { error } = await supabase.from('pending_sales').insert([pendingSaleDto]);
+        if (error) throw error;
         await updateSupabaseInventory(items);
     } catch (err) {
-        console.error("Error processing defer sale:", err);
+        console.error("Error processing defer sale, queueing for retry:", err);
+        queueAction({ type: 'DEFER_SALE', payload: { pendingSale, items } });
     }
     
     return pendingSale;
