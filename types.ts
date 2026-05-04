@@ -24,7 +24,19 @@ export interface SaleRecord {
   items: SaleItem[];
   totalAmount: number;
   totalProfit: number;
+  recordedBy: string;
   timestamp: string;
+}
+
+export interface PendingSale {
+  id: string;
+  customerName: string;
+  items: SaleItem[];
+  totalAmount: number;
+  totalProfit: number;
+  recordedBy: string;
+  timestamp: string;
+  notes?: string;
 }
 
 export interface ExpenseRecord {
@@ -46,7 +58,7 @@ export interface AuditLog {
   timestamp: string;
 }
 
-export type ViewState = 'dashboard' | 'inventory' | 'pos' | 'history' | 'expenses' | 'financials' | 'insights' | 'invoices';
+export type ViewState = 'dashboard' | 'inventory' | 'pos' | 'history' | 'financials' | 'insights' | 'invoices' | 'pending';
 
 export type UserRole = 'admin' | 'cashier';
 

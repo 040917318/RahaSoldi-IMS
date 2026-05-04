@@ -7,7 +7,7 @@ import { exportToCSV } from '../utils';
 interface InventoryManagerProps {
   inventory: InventoryItem[];
   onAdd: (item: Omit<InventoryItem, 'id' | 'lastUpdated'>) => void;
-  onUpdate: (id: string, item: Partial<InventoryItem>) => void;
+  onUpdate: (id: string, item: Partial<InventoryItem>, reason?: string) => void;
   onDelete: (id: string) => void;
   currencySymbol: string;
   userRole: UserRole;
@@ -26,6 +26,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
   const [adjustItem, setAdjustItem] = useState<InventoryItem | null>(null);
   const [adjustQty, setAdjustQty] = useState<string>('');
   const [adjustmentType, setAdjustmentType] = useState<'add' | 'remove' | 'set'>('add');
+  const [adjustmentReason, setAdjustmentReason] = useState<string>('');
 
   // History Modal State
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
@@ -99,12 +100,14 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
     setAdjustItem(item);
     setAdjustQty('');
     setAdjustmentType('add');
+    setAdjustmentReason('');
     setIsAdjustModalOpen(true);
   };
 
   const closeAdjustModal = () => {
     setAdjustItem(null);
     setAdjustQty('');
+    setAdjustmentReason('');
     setIsAdjustModalOpen(false);
   };
 
@@ -146,13 +149,15 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
     const finalQty = getResultingQty();
     
     let message = '';
-    if (adjustmentType === 'add') message = `Confirm adding ${inputVal} units to ${adjustItem.name}?\nNew Total: ${finalQty}`;
-    else if (adjustmentType === 'remove') message = `Confirm removing ${inputVal} units from ${adjustItem.name}?\nNew Total: ${finalQty}`;
-    else message = `Confirm setting stock for ${adjustItem.name} to ${finalQty}?`;
+    const reasonText = adjustmentReason.trim() ? ` (Reason: ${adjustmentReason})` : '';
+
+    if (adjustmentType === 'add') message = `Confirm adding ${inputVal} units to ${adjustItem.name}?\nNew Total: ${finalQty}${reasonText}`;
+    else if (adjustmentType === 'remove') message = `Confirm removing ${inputVal} units from ${adjustItem.name}?\nNew Total: ${finalQty}${reasonText}`;
+    else message = `Confirm setting stock for ${adjustItem.name} to ${finalQty}?${reasonText}`;
 
     if (window.confirm(message)) {
-        onUpdate(adjustItem.id, { quantity: finalQty });
-        closeAdjustModal();
+        onUpdate(adjustItem.id, { quantity: finalQty }, adjustmentReason);
+        setIsAdjustModalOpen(false);
     }
   };
 
@@ -564,6 +569,38 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
                             value={adjustQty}
                             onChange={(e) => setAdjustQty(e.target.value)}
                             placeholder="0"
+                        />
+                    </div>
+
+                    <div className="mb-6">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+                            Reason for Adjustment (Optional)
+                        </label>
+                        <select
+                            className="block w-full border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border mb-2 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                            value={adjustmentReason}
+                            onChange={(e) => setAdjustmentReason(e.target.value)}
+                        >
+                            <option value="">Select a reason...</option>
+                            <option value="Restock / Purchase">Restock / Purchase</option>
+                            <option value="Physical Audit Discrepancy">Physical Audit Discrepancy</option>
+                            <option value="Unrecorded Sale">Unrecorded Sale</option>
+                            <option value="Damage / Expiry">Damage / Expiry</option>
+                            <option value="Theft">Theft</option>
+                            <option value="Return to Supplier">Return to Supplier</option>
+                            <option value="Other">Other</option>
+                        </select>
+                        <input
+                            type="text"
+                            placeholder="Additional details..."
+                            className="block w-full border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                            value={adjustmentReason.startsWith('Other:') ? adjustmentReason.replace('Other: ', '') : (['Restock / Purchase', 'Physical Audit Discrepancy', 'Unrecorded Sale', 'Damage / Expiry', 'Theft', 'Return to Supplier', ''].includes(adjustmentReason) ? '' : adjustmentReason)}
+                            onChange={(e) => {
+                                if (adjustmentReason === 'Other' || !['Restock / Purchase', 'Physical Audit Discrepancy', 'Unrecorded Sale', 'Damage / Expiry', 'Theft', 'Return to Supplier', ''].includes(adjustmentReason)) {
+                                    setAdjustmentReason(e.target.value);
+                                }
+                            }}
+                            disabled={['Restock / Purchase', 'Physical Audit Discrepancy', 'Unrecorded Sale', 'Damage / Expiry', 'Theft', 'Return to Supplier', ''].includes(adjustmentReason) && adjustmentReason !== ''}
                         />
                     </div>
 

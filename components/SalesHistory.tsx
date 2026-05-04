@@ -97,10 +97,11 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
   };
 
   const handleExportCSV = () => {
-    const headers = ['Date', 'Transaction ID', 'Items', 'Total Amount', 'Total Profit'];
+    const headers = ['Date', 'Transaction ID', 'Recorded By', 'Items', 'Total Amount', 'Total Profit'];
     const rows = filteredSales.map(s => [
         new Date(s.timestamp).toLocaleString(),
         s.id,
+        s.recordedBy || 'N/A',
         `"${s.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}"`,
         s.totalAmount.toFixed(2),
         s.totalProfit.toFixed(2)
@@ -223,6 +224,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
             <thead className="bg-slate-50 dark:bg-slate-900">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date & Time</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Recorded By</th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Items Summary</th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total</th>
                 <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Actions</th>
@@ -233,6 +235,9 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
                     <tr key={sale.id} className="hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-900 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">
                             {formatDate(sale.timestamp)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400 italic">
+                            {sale.recordedBy || 'N/A'}
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-800 dark:text-slate-100">
                             <div className="font-medium">{sale.items[0]?.name} {sale.items.length > 1 && `+ ${sale.items.length - 1} others`}</div>
@@ -271,6 +276,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
                     <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center">
                         <Calendar className="w-3 h-3 mr-1" />
                         {formatDate(sale.timestamp)}
+                        <span className="ml-2 italic opacity-75">({sale.recordedBy || 'N/A'})</span>
                     </span>
                     <span className="font-bold text-slate-800 dark:text-slate-100 text-lg">
                         {currencySymbol}{sale.totalAmount.toFixed(2)}
@@ -366,6 +372,10 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
                          <div className="flex justify-between items-center text-sm">
                             <span className="text-slate-500 dark:text-slate-400">Net Profit</span>
                             <span className="text-green-600 font-medium">{currencySymbol}{selectedSale.totalProfit.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs mt-4 pt-4 border-t border-dashed border-slate-200 dark:border-slate-700">
+                            <span className="text-slate-500 dark:text-slate-400">Recorded By</span>
+                            <span className="text-slate-600 dark:text-slate-300 italic">{selectedSale.recordedBy || 'Unknown'}</span>
                         </div>
                     </div>
                 </div>

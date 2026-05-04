@@ -24,6 +24,34 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
   const [discount, setDiscount] = useState<number>(0);
   const [applyTax, setApplyTax] = useState<boolean>(false);
 
+  // Persistence Logic
+  useEffect(() => {
+    const savedDraft = localStorage.getItem('invoice_generator_draft');
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft);
+        if (draft.mode) setMode(draft.mode);
+        if (draft.customerName) setCustomerName(draft.customerName);
+        if (draft.documentItems) setDocumentItems(draft.documentItems);
+        if (draft.discount !== undefined) setDiscount(draft.discount);
+        if (draft.applyTax !== undefined) setApplyTax(draft.applyTax);
+      } catch (e) {
+        console.error("Failed to load invoice draft", e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const draft = {
+      mode,
+      customerName,
+      documentItems,
+      discount,
+      applyTax
+    };
+    localStorage.setItem('invoice_generator_draft', JSON.stringify(draft));
+  }, [mode, customerName, documentItems, discount, applyTax]);
+
   // Receipt Mode State
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
@@ -122,18 +150,35 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
     <div className="space-y-6 animate-fade-in">
       {/* Controls (Hidden during print) */}
       <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 print:hidden">
-        <div className="flex space-x-4 mb-6">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex space-x-4">
+            <button
+              onClick={() => setMode('receipt')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${mode === 'receipt' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200'}`}
+            >
+              Generate Receipt
+            </button>
+            <button
+              onClick={() => setMode('invoice')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${mode === 'invoice' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200'}`}
+            >
+              Create Invoice
+            </button>
+          </div>
           <button
-            onClick={() => setMode('receipt')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${mode === 'receipt' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200'}`}
+            onClick={() => {
+              if (confirm('Clear all fields in this form?')) {
+                setCustomerName('');
+                setDocumentItems([]);
+                setDiscount(0);
+                setApplyTax(false);
+                setSelectedSaleId(null);
+                setSearchTerm('');
+              }
+            }}
+            className="text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
           >
-            Generate Receipt
-          </button>
-          <button
-            onClick={() => setMode('invoice')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${mode === 'invoice' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200'}`}
-          >
-            Create Invoice
+            Clear Form
           </button>
         </div>
 

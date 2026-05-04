@@ -1,20 +1,62 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { InventoryItem, SaleItem, SaleRecord } from '../types';
-import { ShoppingCart, Plus, Trash2, CheckCircle, Search, Tag } from 'lucide-react';
+import { InventoryItem, SaleItem, SaleRecord, PendingSale } from '../types';
+import { ShoppingCart, Plus, Trash2, CheckCircle, Search, Tag, Clock, User, X } from 'lucide-react';
 
 interface SalesTerminalProps {
   inventory: InventoryItem[];
   onCompleteSale: (items: SaleItem[]) => Promise<SaleRecord> | SaleRecord;
+  onDeferSale: (items: SaleItem[], customerName: string, notes: string) => Promise<PendingSale> | PendingSale;
   currencySymbol: string;
 }
 
-export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompleteSale, currencySymbol }) => {
+export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompleteSale, onDeferSale, currencySymbol }) => {
   const [cart, setCart] = useState<SaleItem[]>([]);
+  
+  // Load draft from localStorage on mount
+  useEffect(() => {
+    const savedCart = localStorage.getItem('pos_cart_draft');
+    if (savedCart) {
+      try {
+        setCart(JSON.parse(savedCart));
+      } catch (e) {
+        console.error("Failed to load cart draft", e);
+      }
+    }
+  }, []);
+
+  // Sync draft to localStorage whenever it changes
+  useEffect(() => {
+    if (cart.length > 0) {
+      localStorage.setItem('pos_cart_draft', JSON.stringify(cart));
+    } else {
+      localStorage.removeItem('pos_cart_draft');
+    }
+  }, [cart]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [qtyInput, setQtyInput] = useState<number>(1);
   const [successMsg, setSuccessMsg] = useState('');
+  
+  // Defer Modal State
+  const [isDeferModalOpen, setIsDeferModalOpen] = useState(false);
+  const [customerName, setCustomerName] = useState('');
+  const [notes, setNotes] = useState('');
+
+  // Load defer draft
+  useEffect(() => {
+    const savedCustomer = localStorage.getItem('pos_defer_customer');
+    const savedNotes = localStorage.getItem('pos_defer_notes');
+    if (savedCustomer) setCustomerName(savedCustomer);
+    if (savedNotes) setNotes(savedNotes);
+  }, []);
+
+  // Sync defer draft
+  useEffect(() => {
+    localStorage.setItem('pos_defer_customer', customerName);
+    localStorage.setItem('pos_defer_notes', notes);
+  }, [customerName, notes]);
 
   // Derive selected product from inventory to ensure we always show current stock levels
   const selectedProduct = useMemo(() => 
@@ -108,6 +150,17 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
     setCart([]);
     setSuccessMsg('Sale recorded successfully!');
     setSelectedProductId(null); // Clear selection to prevent showing stale data if quantity drops to 0
+  };
+
+  const handleDefer = async () => {
+    if (cart.length === 0 || !customerName.trim()) return;
+    await onDeferSale(cart, customerName, notes);
+    setCart([]);
+    setIsDeferModalOpen(false);
+    setCustomerName('');
+    setNotes('');
+    setSuccessMsg('Sale deferred successfully!');
+    setSelectedProductId(null);
   };
 
   const cartTotal = cart.reduce((acc, item) => acc + (item.quantity * item.priceAtSale) - (item.discount || 0), 0);
@@ -253,14 +306,25 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
             <span className="text-3xl font-bold text-slate-900 dark:text-slate-50">{currencySymbol}{cartTotal.toFixed(2)}</span>
           </div>
           
-          <button 
-            onClick={handleCheckout}
-            disabled={cart.length === 0}
-            className="w-full py-4 bg-green-600 text-white font-bold rounded-xl shadow-lg hover:bg-green-700 transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-          >
-            <CheckCircle className="w-6 h-6 mr-2" />
-            Complete Sale
-          </button>
+          <div className="space-y-3">
+            <button 
+                onClick={handleCheckout}
+                disabled={cart.length === 0}
+                className="w-full py-4 bg-green-600 text-white font-bold rounded-xl shadow-lg hover:bg-green-700 transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center border-b-4 border-green-800"
+            >
+                <CheckCircle className="w-6 h-6 mr-2" />
+                Complete Sale
+            </button>
+
+            <button 
+                onClick={() => cart.length > 0 && setIsDeferModalOpen(true)}
+                disabled={cart.length === 0}
+                className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:bg-blue-700 transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            >
+                <Clock className="w-5 h-5 mr-2" />
+                Defer Payment (Credit)
+            </button>
+          </div>
 
           {successMsg && (
              <div className="mt-4 p-3 bg-green-100 text-green-800 text-center rounded-lg text-sm font-medium animate-pulse">
@@ -269,6 +333,73 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
           )}
         </div>
       </div>
+
+      {/* Defer Payment Modal */}
+      {isDeferModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-200">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 italic">Defer Sale / Credit</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Record items taken without immediate payment.</p>
+              </div>
+              <button onClick={() => setIsDeferModalOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center">
+                  <User className="w-4 h-4 mr-2 text-blue-500" />
+                  Customer Name <span className="text-red-500 ml-1 text-xs">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Who is taking these items?"
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  placeholder="e.g. Will pay tomorrow morning at 8am"
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all min-h-[100px]"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30 flex justify-between items-center">
+                <span className="text-sm font-medium text-blue-800 dark:text-blue-300">Total Indebtedness:</span>
+                <span className="text-xl font-bold font-mono text-blue-600 dark:text-blue-400">{currencySymbol}{cartTotal.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className="p-6 pt-0 flex gap-3">
+              <button
+                onClick={() => setIsDeferModalOpen(false)}
+                className="flex-1 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDefer}
+                disabled={!customerName.trim()}
+                className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 dark:shadow-none hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+              >
+                Save Record
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

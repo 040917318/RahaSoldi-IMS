@@ -1,12 +1,14 @@
 
 import React, { useMemo } from 'react';
-import { InventoryItem, SaleRecord, UserRole } from '../types';
+import { InventoryItem, SaleRecord, UserRole, AuditLog, PendingSale } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { Package, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Package, TrendingUp, AlertTriangle, ShieldAlert, Clock } from 'lucide-react';
 
 interface DashboardProps {
   inventory: InventoryItem[];
   sales: SaleRecord[];
+  pendingSales: PendingSale[];
+  auditLogs: AuditLog[];
   currencySymbol: string;
   userRole: UserRole;
 }
@@ -28,7 +30,7 @@ const CediSign = ({ className }: { className?: string }) => (
   </svg>
 );
 
-export const Dashboard: React.FC<DashboardProps> = ({ inventory, sales, currencySymbol, userRole }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ inventory, sales, pendingSales, auditLogs, currencySymbol, userRole }) => {
   
   const metrics = useMemo(() => {
     const totalRevenue = sales.reduce((acc, sale) => acc + sale.totalAmount, 0);
@@ -37,8 +39,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ inventory, sales, currency
     const totalInventoryValue = inventory.reduce((acc, i) => acc + (i.costPrice * i.quantity), 0);
     const potentialSalesValue = inventory.reduce((acc, i) => acc + (i.salesPrice * i.quantity), 0);
 
-    return { totalRevenue, totalProfit, lowStockCount, totalInventoryValue, potentialSalesValue };
-  }, [inventory, sales]);
+    const totalPendingAmount = pendingSales.reduce((acc, s) => acc + s.totalAmount, 0);
+    const pendingCount = pendingSales.length;
+
+    // Calculate discrepancies from audit logs
+    const unrecordedSalesLogs = auditLogs.filter(log => 
+      log.action === 'adjustment' && 
+      log.details.includes('[Reason: Unrecorded Sale]')
+    );
+
+    const totalDiscrepancyCount = unrecordedSalesLogs.length;
+
+    return { 
+      totalRevenue, 
+      totalProfit, 
+      lowStockCount, 
+      totalInventoryValue, 
+      potentialSalesValue, 
+      totalDiscrepancyCount,
+      totalPendingAmount,
+      pendingCount
+    };
+  }, [inventory, sales, auditLogs, pendingSales]);
 
   // Prepare chart data (Last 7 days sales)
   const chartData = useMemo(() => {
@@ -167,6 +189,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ inventory, sales, currency
           color="bg-red-600" 
           subtext="Items below threshold"
         />
+        <StatCard 
+          title="Outstanding Credit" 
+          value={`${currencySymbol}${metrics.totalPendingAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} 
+          icon={Clock} 
+          color="bg-blue-600" 
+          subtext={`${metrics.pendingCount} pending payment`}
+        />
+        {userRole === 'admin' && (
+          <StatCard 
+            title="Unrecorded Sales" 
+            value={metrics.totalDiscrepancyCount} 
+            icon={ShieldAlert} 
+            color="bg-orange-600" 
+            subtext="Identified by audits"
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { LayoutDashboard, Package, ShoppingCart, BrainCircuit, Menu, X, History, Wifi, WifiOff, Loader2, PieChart, Truck, LogOut, Shield, RefreshCw, Moon, Sun, FileText } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, BrainCircuit, Menu, X, History, Wifi, WifiOff, Loader2, PieChart, Truck, LogOut, Shield, RefreshCw, Moon, Sun, FileText, Clock } from 'lucide-react';
 import { Auth } from './components/Auth';
-import { InventoryItem, SaleRecord, SaleItem, ViewState, ExpenseRecord, UserRole, AuditLog } from './types';
+import { InventoryItem, SaleRecord, SaleItem, ViewState, ExpenseRecord, UserRole, AuditLog, PendingSale } from './types';
 import { supabase } from './services/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 
@@ -14,6 +14,7 @@ const SalesHistory = lazy(() => import('./components/SalesHistory').then(module 
 const FinancialReport = lazy(() => import('./components/FinancialReport').then(module => ({ default: module.FinancialReport })));
 const AIInsights = lazy(() => import('./components/AIInsights').then(module => ({ default: module.AIInsights })));
 const InvoiceReceiptGenerator = lazy(() => import('./components/InvoiceReceiptGenerator').then(module => ({ default: module.InvoiceReceiptGenerator })));
+const PendingSalesManager = lazy(() => import('./components/PendingSalesManager').then(module => ({ default: module.PendingSalesManager })));
 
 // Custom Cedi Icon Component
 const CediSign = ({ className }: { className?: string }) => (
@@ -59,6 +60,7 @@ const App: React.FC = () => {
   // Data State
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [sales, setSales] = useState<SaleRecord[]>([]);
+  const [pendingSales, setPendingSales] = useState<PendingSale[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
   // Dark Mode Effect
@@ -132,6 +134,7 @@ const App: React.FC = () => {
     };
     loadLocal('inventory', setInventory);
     loadLocal('sales', setSales);
+    loadLocal('pendingSales', setPendingSales);
     
     // Check pending actions
     const queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
@@ -182,15 +185,20 @@ const App: React.FC = () => {
                         const { error: saleErr } = await supabase.from('sales').insert([sale]);
                         if(saleErr) throw saleErr;
                         
-                        for (const item of items) {
-                             const { data: curr } = await supabase.from('inventory').select('quantity').eq('id', item.itemId).single();
-                             if(curr) {
-                                 await supabase.from('inventory').update({ 
-                                     quantity: curr.quantity - item.quantity,
-                                     lastUpdated: new Date().toISOString()
-                                 }).eq('id', item.itemId);
-                             }
-                        }
+                        await updateSupabaseInventory(items);
+                        break;
+                    case 'DEFER_SALE':
+                        const { pendingSale, items: deferredItems } = action.payload;
+                        await supabase.from('pending_sales').insert([pendingSale]);
+                        await updateSupabaseInventory(deferredItems);
+                        break;
+                    case 'COMPLETE_PENDING':
+                        const { saleId, finalizedSale } = action.payload;
+                        await supabase.from('sales').insert([finalizedSale]);
+                        await supabase.from('pending_sales').delete().eq('id', saleId);
+                        break;
+                    case 'CANCEL_PENDING':
+                        await supabase.from('pending_sales').delete().eq('id', action.payload.id);
                         break;
                 }
                 success = true;
@@ -220,6 +228,19 @@ const App: React.FC = () => {
   }, [isOnline, pendingActions]);
 
 
+  const updateSupabaseInventory = async (items: SaleItem[]) => {
+    for (const item of items) {
+      const { data: curr } = await supabase.from('inventory').select('quantity').eq('id', item.itemId).single();
+      if (curr) {
+          const newQty = curr.quantity - item.quantity;
+          await supabase.from('inventory').update({ 
+              quantity: newQty, 
+              lastUpdated: new Date().toISOString() 
+          }).eq('id', item.itemId);
+      }
+    }
+  };
+
   // Fetch Data from Supabase
   const fetchData = async () => {
     if (!session) return;
@@ -228,19 +249,24 @@ const App: React.FC = () => {
     setLoading(true);
     try {
       // Fetch Inventory
-      const { data: invData, error: invError } = await supabase.from('inventory').select('*');
-      if (invError) throw invError;
+      const { data: invData } = await supabase.from('inventory').select('*');
       if (invData) {
           setInventory(invData);
           persist('inventory', invData);
       }
 
       // Fetch Sales
-      const { data: salesData, error: salesError } = await supabase.from('sales').select('*').order('timestamp', { ascending: false });
-      if (salesError) throw salesError;
+      const { data: salesData } = await supabase.from('sales').select('*').order('timestamp', { ascending: false });
       if (salesData) {
           setSales(salesData);
           persist('sales', salesData);
+      }
+
+      // Fetch Pending Sales
+      const { data: pendingData } = await supabase.from('pending_sales').select('*').order('timestamp', { ascending: false });
+      if (pendingData) {
+          setPendingSales(pendingData);
+          persist('pendingSales', pendingData);
       }
       
     } catch (error) {
@@ -295,7 +321,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateItem = async (id: string, updates: Partial<InventoryItem>) => {
+  const handleUpdateItem = async (id: string, updates: Partial<InventoryItem>, reason?: string) => {
     const oldItem = inventory.find(i => i.id === id);
     if (!oldItem) return;
 
@@ -303,7 +329,8 @@ const App: React.FC = () => {
     const finalUpdates = { ...updates, lastUpdated: updatedTimestamp };
 
     if (updates.quantity !== undefined && updates.quantity !== oldItem.quantity) {
-       logAction(id, oldItem.name, 'adjustment', `Stock adjusted from ${oldItem.quantity} to ${updates.quantity}`);
+       const reasonText = reason ? ` [Reason: ${reason}]` : '';
+       logAction(id, oldItem.name, 'adjustment', `Stock adjusted from ${oldItem.quantity} to ${updates.quantity}${reasonText}`);
     }
 
     const updatedInventory = inventory.map(item => item.id === id ? { ...item, ...finalUpdates } : item);
@@ -352,6 +379,7 @@ const App: React.FC = () => {
       items,
       totalAmount,
       totalProfit: totalAmount - totalCost,
+      recordedBy: session?.user?.email || 'Unknown',
       timestamp: new Date().toISOString()
     };
 
@@ -399,6 +427,107 @@ const App: React.FC = () => {
     }
     
     return newSale;
+  };
+
+  const handleDeferSale = async (items: SaleItem[], customerName: string, notes: string): Promise<PendingSale> => {
+    const totalAmount = items.reduce((sum, item) => sum + ((item.quantity * item.priceAtSale) - (item.discount || 0)), 0);
+    const totalCost = items.reduce((sum, item) => sum + (item.quantity * item.costAtSale), 0);
+    
+    const pendingSale: PendingSale = {
+      id: crypto.randomUUID(),
+      customerName,
+      items,
+      totalAmount,
+      totalProfit: totalAmount - totalCost,
+      recordedBy: session?.user?.email || 'Unknown',
+      timestamp: new Date().toISOString(),
+      notes
+    };
+
+    // Update Local Inventory & Pending Sales
+    const newInventory = [...inventory];
+    items.forEach(saleItem => {
+      const productIndex = newInventory.findIndex(p => p.id === saleItem.itemId);
+      if (productIndex > -1) {
+        const oldQty = newInventory[productIndex].quantity;
+        const newQty = oldQty - saleItem.quantity;
+        newInventory[productIndex] = { ...newInventory[productIndex], quantity: newQty, lastUpdated: new Date().toISOString() };
+        logAction(saleItem.itemId, saleItem.name, 'sale', `Deferred sale to ${customerName}. Stock: ${oldQty} -> ${newQty}`);
+      }
+    });
+
+    setInventory(newInventory);
+    persist('inventory', newInventory);
+    
+    const newPending = [pendingSale, ...pendingSales];
+    setPendingSales(newPending);
+    persist('pendingSales', newPending);
+
+    if (!isOnline) {
+        queueAction({ type: 'DEFER_SALE', payload: { pendingSale, items } });
+        return pendingSale;
+    }
+
+    try {
+        await supabase.from('pending_sales').insert([pendingSale]);
+        await updateSupabaseInventory(items);
+    } catch (err) {
+        console.error("Error processing defer sale:", err);
+    }
+    
+    return pendingSale;
+  };
+
+  const handleCompletePendingSale = async (saleId: string) => {
+    const pendingSale = pendingSales.find(s => s.id === saleId);
+    if (!pendingSale) return;
+
+    const finalizedSale: SaleRecord = {
+      id: crypto.randomUUID(),
+      items: pendingSale.items,
+      totalAmount: pendingSale.totalAmount,
+      totalProfit: pendingSale.totalProfit,
+      recordedBy: session?.user?.email || 'Unknown',
+      timestamp: new Date().toISOString()
+    };
+
+    // Update Local Sales & Remove from Pending
+    const newSales = [finalizedSale, ...sales];
+    setSales(newSales);
+    persist('sales', newSales);
+
+    const newPending = pendingSales.filter(s => s.id !== saleId);
+    setPendingSales(newPending);
+    persist('pendingSales', newPending);
+
+    if (!isOnline) {
+        queueAction({ type: 'COMPLETE_PENDING', payload: { saleId, finalizedSale } });
+        return;
+    }
+
+    try {
+        await supabase.from('sales').insert([finalizedSale]);
+        await supabase.from('pending_sales').delete().eq('id', saleId);
+    } catch (err) {
+        console.error("Error completing pending sale:", err);
+    }
+  };
+
+  const handleCancelPendingSale = async (saleId: string) => {
+    const newPending = pendingSales.filter(s => s.id !== saleId);
+    setPendingSales(newPending);
+    persist('pendingSales', newPending);
+
+    if (!isOnline) {
+        queueAction({ type: 'CANCEL_PENDING', payload: { id: saleId } });
+        return;
+    }
+
+    try {
+        await supabase.from('pending_sales').delete().eq('id', saleId);
+    } catch (err) {
+        console.error("Error cancelling pending sale:", err);
+    }
   };
 
   const handleSignOut = async () => {
@@ -451,6 +580,7 @@ const App: React.FC = () => {
         <nav className="flex-1 mt-6 overflow-y-auto">
           <NavItem view="dashboard" icon={LayoutDashboard} label="Dashboard" />
           <NavItem view="pos" icon={ShoppingCart} label="Point of Sale" />
+          <NavItem view="pending" icon={Clock} label="Pending Sales" />
           <NavItem view="history" icon={History} label="Sales History" />
           <NavItem view="inventory" icon={Package} label="Inventory" />
           
@@ -522,6 +652,7 @@ const App: React.FC = () => {
         <div className="lg:hidden fixed inset-0 bg-primary z-20 pt-20 overflow-y-auto">
           <NavItem view="dashboard" icon={LayoutDashboard} label="Dashboard" />
           <NavItem view="pos" icon={ShoppingCart} label="Point of Sale" />
+          <NavItem view="pending" icon={Clock} label="Pending Sales" />
           <NavItem view="history" icon={History} label="Sales History" />
           <NavItem view="inventory" icon={Package} label="Inventory" />
           
@@ -554,6 +685,7 @@ const App: React.FC = () => {
                 {activeView === 'dashboard' && 'Business Overview'}
                 {activeView === 'inventory' && 'Inventory Management'}
                 {activeView === 'pos' && 'New Sale'}
+                {activeView === 'pending' && 'Pending Sales'}
                 {activeView === 'history' && 'Transaction History'}
                 {activeView === 'financials' && 'Financial Health'}
                 {activeView === 'insights' && 'Business Intelligence'}
@@ -563,6 +695,7 @@ const App: React.FC = () => {
                 {activeView === 'dashboard' && 'Welcome back.'}
                 {activeView === 'inventory' && 'Manage your stock and pricing.'}
                 {activeView === 'pos' && 'Process transactions quickly.'}
+                {activeView === 'pending' && 'Manage credit/deferred records.'}
                 {activeView === 'history' && 'Review past sales and performance.'}
                 {activeView === 'financials' && 'Analyze Profit & Loss and Balance Sheet.'}
                 {activeView === 'insights' && 'AI-powered recommendations.'}
@@ -594,9 +727,10 @@ const App: React.FC = () => {
                     <p>Loading view...</p>
                   </div>
                 }>
-                    {activeView === 'dashboard' && <Dashboard inventory={inventory} sales={sales} currencySymbol="GH₵" userRole={userRole} />}
+                    {activeView === 'dashboard' && <Dashboard inventory={inventory} sales={sales} pendingSales={pendingSales} auditLogs={auditLogs} currencySymbol="GH₵" userRole={userRole} />}
                     {activeView === 'inventory' && <InventoryManager inventory={inventory} onAdd={handleAddItem} onUpdate={handleUpdateItem} onDelete={handleDeleteItem} currencySymbol="GH₵" userRole={userRole} auditLogs={auditLogs} />}
-                    {activeView === 'pos' && <SalesTerminal inventory={inventory} onCompleteSale={handleCompleteSale} currencySymbol="GH₵" />}
+                    {activeView === 'pos' && <SalesTerminal inventory={inventory} onCompleteSale={handleCompleteSale} onDeferSale={handleDeferSale} currencySymbol="GH₵" />}
+                    {activeView === 'pending' && <PendingSalesManager pendingSales={pendingSales} onComplete={handleCompletePendingSale} onCancel={handleCancelPendingSale} currencySymbol="GH₵" />}
                     {activeView === 'history' && <SalesHistory sales={sales} currencySymbol="GH₵" />}
                     {userRole === 'admin' && activeView === 'financials' && <FinancialReport inventory={inventory} sales={sales} currencySymbol="GH₵" />}
                     {userRole === 'admin' && activeView === 'insights' && <AIInsights inventory={inventory} sales={sales} />}
