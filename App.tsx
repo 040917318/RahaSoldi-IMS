@@ -57,6 +57,48 @@ const App: React.FC = () => {
   const [pendingActions, setPendingActions] = useState<number>(0);
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // Inactivity Timeout Logic
+  useEffect(() => {
+    if (!session) return;
+
+    const INACTIVITY_TIMEOUT = 1 * 60 * 60 * 1000; // 1 hour
+
+    const updateActivity = () => {
+      localStorage.setItem('lastActivity', Date.now().toString());
+    };
+
+    const checkInactivity = () => {
+      const lastActivity = localStorage.getItem('lastActivity');
+      if (lastActivity) {
+        const elapsed = Date.now() - parseInt(lastActivity, 10);
+        if (elapsed > INACTIVITY_TIMEOUT) {
+          handleSignOut();
+          return true; // Was inactive
+        }
+      }
+      return false; // Still active
+    };
+
+    // Immediate check on session load
+    const wasInactive = checkInactivity();
+    if (!wasInactive) {
+      // If we are here, we are active, so update it
+      updateActivity();
+    }
+
+    // Listen for events
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    events.forEach(name => window.addEventListener(name, updateActivity));
+
+    // Periodic check every minute
+    const interval = setInterval(checkInactivity, 60000);
+
+    return () => {
+      events.forEach(name => window.removeEventListener(name, updateActivity));
+      clearInterval(interval);
+    };
+  }, [session]);
+
   // Data State
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [sales, setSales] = useState<SaleRecord[]>([]);
@@ -531,6 +573,7 @@ const App: React.FC = () => {
   };
 
   const handleSignOut = async () => {
+    localStorage.removeItem('lastActivity');
     await supabase.auth.signOut();
   };
 
