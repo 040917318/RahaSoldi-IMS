@@ -37,8 +37,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
     name: '',
     category: '',
     quantity: 0,
-    costPrice: 0,
-    salesPrice: 0,
+    costPrice: '' as string | number,
+    salesPrice: '' as string | number,
     lowStockThreshold: 5
   });
 
@@ -62,9 +62,17 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingId) {
-      onUpdate(editingId, formData);
+      onUpdate(editingId, {
+        ...formData,
+        costPrice: typeof formData.costPrice === 'string' ? parseFloat(formData.costPrice) || 0 : formData.costPrice,
+        salesPrice: typeof formData.salesPrice === 'string' ? parseFloat(formData.salesPrice) || 0 : formData.salesPrice
+      });
     } else {
-      onAdd(formData);
+      onAdd({
+        ...formData,
+        costPrice: typeof formData.costPrice === 'string' ? parseFloat(formData.costPrice) || 0 : formData.costPrice,
+        salesPrice: typeof formData.salesPrice === 'string' ? parseFloat(formData.salesPrice) || 0 : formData.salesPrice
+      });
     }
     resetForm();
   };
@@ -75,8 +83,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
       name: item.name,
       category: item.category,
       quantity: item.quantity,
-      costPrice: item.costPrice,
-      salesPrice: item.salesPrice,
+      costPrice: item.costPrice.toString(),
+      salesPrice: item.salesPrice.toString(),
       lowStockThreshold: item.lowStockThreshold
     });
     setIsModalOpen(true);
@@ -87,8 +95,8 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
       name: '',
       category: '',
       quantity: 0,
-      costPrice: 0,
-      salesPrice: 0,
+      costPrice: '',
+      salesPrice: '',
       lowStockThreshold: 5
     });
     setEditingId(null);
@@ -268,9 +276,13 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
                     <div className="flex flex-col">
-                      <span className="text-slate-900 dark:text-slate-50 font-medium">Sell: {currencySymbol}{item.salesPrice.toFixed(2)}</span>
+                      <span className="text-slate-900 dark:text-slate-50 font-medium">
+                        Sell: {currencySymbol}{(Number(item.salesPrice) || 0).toFixed(2)}
+                      </span>
                       {userRole === 'admin' && (
-                        <span className="text-xs">Cost: {currencySymbol}{item.costPrice.toFixed(2)}</span>
+                        <span className="text-xs">
+                          Cost: {currencySymbol}{(Number(item.costPrice) || 0).toFixed(2)}
+                        </span>
                       )}
                     </div>
                   </td>
@@ -344,15 +356,15 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
             <div className="flex justify-between items-center py-2 border-t border-b border-slate-100 dark:border-slate-700/50 mb-3">
                <div>
                  <span className="text-xs text-slate-400 block">Selling Price</span>
-                 <span className="font-bold text-primary">{currencySymbol}{item.salesPrice.toFixed(2)}</span>
+                 <span className="font-bold text-primary">{currencySymbol}{(Number(item.salesPrice) || 0).toFixed(2)}</span>
                </div>
                {userRole === 'admin' && (
                 <div className="text-right">
                    <span className="text-xs text-slate-400 block">Cost Price</span>
-                   <span className="font-medium text-slate-600 dark:text-slate-300">{currencySymbol}{item.costPrice.toFixed(2)}</span>
+                   <span className="font-medium text-slate-600 dark:text-slate-300">{currencySymbol}{(Number(item.costPrice) || 0).toFixed(2)}</span>
                 </div>
                )}
-            </div>
+             </div>
 
             {userRole === 'admin' && (
               <div className="flex justify-between items-center pt-1">
@@ -445,7 +457,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
                     required
                     className="w-full border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                     value={formData.costPrice}
-                    onChange={(e) => setFormData({ ...formData, costPrice: parseFloat(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
                   />
                 </div>
                 <div>
@@ -457,7 +469,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
                     required
                     className="w-full border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:ring-primary focus:border-primary p-2 border bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                     value={formData.salesPrice}
-                    onChange={(e) => setFormData({ ...formData, salesPrice: parseFloat(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, salesPrice: e.target.value })}
                   />
                 </div>
               </div>

@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { SaleRecord } from '../types';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { SaleRecord, PendingSale } from '../types';
 import { FileText, Printer, Search, Plus, Trash2, MessageCircle, Loader2 } from 'lucide-react';
 import logoUrl from '../logo.svg';
 import html2canvas from 'html2canvas';
@@ -8,10 +8,11 @@ import { useReactToPrint } from 'react-to-print';
 
 interface InvoiceReceiptGeneratorProps {
   sales: SaleRecord[];
+  pendingSales: PendingSale[];
   currencySymbol: string;
 }
 
-export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = ({ sales, currencySymbol }) => {
+export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = ({ sales, pendingSales, currencySymbol }) => {
   const [mode, setMode] = useState<'receipt' | 'invoice'>('receipt');
   
   // Shared State
@@ -24,6 +25,14 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
   const [discount, setDiscount] = useState<number>(0);
   const [applyTax, setApplyTax] = useState<boolean>(false);
 
+  // Combine sales for searching
+  const allSalesCombined = useMemo(() => {
+    return [
+      ...sales.map(s => ({ ...s, isPending: false })),
+      ...pendingSales.map(ps => ({ ...ps, isPending: true }))
+    ];
+  }, [sales, pendingSales]);
+  
   // Persistence Logic
   useEffect(() => {
     const savedDraft = localStorage.getItem('invoice_generator_draft');
@@ -59,21 +68,22 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
-  const filteredSales = sales.filter(sale => 
+  const filteredSales = allSalesCombined.filter((sale: any) => 
     sale.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sale.items.some(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    sale.items.some((item: any) => item.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (sale.customerName && sale.customerName.toLowerCase().includes(searchTerm.toLowerCase()))
   ).slice(0, 5);
 
-  const handleSelectSale = (sale: SaleRecord) => {
+  const handleSelectSale = (sale: any) => {
     setSelectedSaleId(sale.id);
-    setDocumentItems(sale.items.map(i => ({
+    setDocumentItems(sale.items.map((i: any) => ({
       description: i.name,
       quantity: i.quantity,
       price: i.priceAtSale
     })));
     setDiscount(0);
     setApplyTax(false);
-    setCustomerName('');
+    setCustomerName(sale.customerName || '');
   };
 
   const handleAddItem = () => {
@@ -208,11 +218,19 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
                       className={`p-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-200 dark:border-slate-700 last:border-0 ${selectedSaleId === sale.id ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''}`}
                     >
                       <div className="flex justify-between items-center">
-                        <span className="font-medium text-slate-800 dark:text-slate-100">{new Date(sale.timestamp).toLocaleDateString()}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-slate-800 dark:text-slate-100">{new Date(sale.timestamp).toLocaleDateString()}</span>
+                          {sale.isPending && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 font-bold uppercase flex items-center">
+                              Pending
+                            </span>
+                          )}
+                        </div>
                         <span className="font-bold text-primary">{currencySymbol}{sale.totalAmount.toFixed(2)}</span>
                       </div>
                       <div className="text-sm text-slate-500 dark:text-slate-400 truncate">
-                        {sale.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}
+                        {(sale as any).customerName && <span className="font-bold mr-1">{(sale as any).customerName}:</span>}
+                        {sale.items.map((i: any) => `${i.quantity}x ${i.name}`).join(', ')}
                       </div>
                     </div>
                   ))}

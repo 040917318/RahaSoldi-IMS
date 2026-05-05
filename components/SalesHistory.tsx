@@ -1,28 +1,46 @@
 
 import React, { useState, useMemo } from 'react';
-import { SaleRecord } from '../types';
-import { Search, Eye, FileText, X, ArrowUpCircle, Calendar, ChevronRight, Filter, Download, ArrowUpDown, Printer } from 'lucide-react';
+import { SaleRecord, PendingSale } from '../types';
+import { Search, Eye, FileText, X, ArrowUpCircle, Calendar, ChevronRight, Filter, Download, ArrowUpDown, Printer, Clock } from 'lucide-react';
 
 interface SalesHistoryProps {
   sales: SaleRecord[];
+  pendingSales: PendingSale[];
   currencySymbol: string;
 }
 
-export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbol }) => {
+export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales, currencySymbol }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'>('date-desc');
-  const [selectedSale, setSelectedSale] = useState<SaleRecord | null>(null);
+  const [selectedSale, setSelectedSale] = useState<any | null>(null);
+
+  const combinedSales = useMemo(() => {
+    const mappedPending = pendingSales.map(ps => ({
+      ...ps,
+      status: 'pending' as const,
+      isPending: true
+    }));
+    
+    const mappedCompleted = sales.map(s => ({
+      ...s,
+      status: 'completed' as const,
+      isPending: false
+    }));
+
+    return [...mappedCompleted, ...mappedPending];
+  }, [sales, pendingSales]);
 
   const filteredSales = useMemo(() => {
-    return sales.filter(sale => {
+    return combinedSales.filter(sale => {
       // Search term filter (check if any item name or Sale ID matches)
       const term = searchTerm.toLowerCase();
       const matchesSearch = 
         searchTerm === '' || 
         sale.items.some(item => item.name.toLowerCase().includes(term)) ||
-        sale.id.toLowerCase().includes(term);
+        sale.id.toLowerCase().includes(term) ||
+        (('customerName' in sale) && (sale as any).customerName?.toLowerCase().includes(term));
 
       // Date range filter
       let matchesDate = true;
@@ -50,7 +68,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
                 return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
         }
     });
-  }, [sales, searchTerm, startDate, endDate, sortBy]);
+  }, [combinedSales, searchTerm, startDate, endDate, sortBy]);
 
   const totalRevenue = filteredSales.reduce((acc, sale) => acc + sale.totalAmount, 0);
   const totalProfit = filteredSales.reduce((acc, sale) => acc + sale.totalProfit, 0);
@@ -236,12 +254,26 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">
                             {formatDate(sale.timestamp)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400 italic">
-                            {sale.recordedBy || 'N/A'}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-xs text-slate-500 dark:text-slate-400 italic">
+                                {sale.recordedBy || 'N/A'}
+                            </div>
+                            {sale.isPending && (sale as any).customerName && (
+                                <div className="text-[10px] font-bold text-blue-500 uppercase mt-0.5">
+                                    Customer: {(sale as any).customerName}
+                                </div>
+                            )}
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-800 dark:text-slate-100">
-                            <div className="font-medium">{sale.items[0]?.name} {sale.items.length > 1 && `+ ${sale.items.length - 1} others`}</div>
-                            <div className="text-xs text-slate-500 dark:text-slate-400">{sale.items.reduce((sum, i) => sum + i.quantity, 0)} items total</div>
+                            <div className="flex items-center gap-2">
+                                <div className="font-medium">{sale.items[0]?.name} {sale.items.length > 1 && `+ ${sale.items.length - 1} others`}</div>
+                                {sale.isPending && (
+                                    <span className="flex items-center px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-bold uppercase">
+                                        <Clock className="w-3 h-3 mr-1" /> Pending
+                                    </span>
+                                )}
+                            </div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">{sale.items.reduce((sum: number, i: any) => sum + i.quantity, 0)} items total</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800 dark:text-slate-100">
                             {currencySymbol}{sale.totalAmount.toFixed(2)}
@@ -271,7 +303,12 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
       {/* Mobile Card List */}
       <div className="md:hidden space-y-4">
         {filteredSales.map((sale) => (
-            <div key={sale.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm" onClick={() => setSelectedSale(sale)}>
+            <div key={sale.id} className={`bg-white dark:bg-slate-800 p-4 rounded-xl border ${sale.isPending ? 'border-blue-200 dark:border-blue-800/50' : 'border-slate-200 dark:border-slate-700'} shadow-sm relative overflow-hidden`} onClick={() => setSelectedSale(sale)}>
+                {sale.isPending && (
+                    <div className="absolute top-0 right-0 bg-blue-500 text-white text-[8px] font-bold px-2 py-0.5 rounded-bl-lg uppercase">
+                        Pending
+                    </div>
+                )}
                 <div className="flex justify-between items-center mb-2">
                     <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center">
                         <Calendar className="w-3 h-3 mr-1" />
@@ -289,6 +326,11 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
                     {sale.items.length > 1 && (
                         <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                             + {sale.items.length - 1} other items
+                        </div>
+                    )}
+                    {sale.isPending && (sale as any).customerName && (
+                        <div className="text-xs font-bold text-blue-500 mt-1">
+                            Customer: {(sale as any).customerName}
                         </div>
                     )}
                 </div>
@@ -318,14 +360,32 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
                 <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center bg-slate-50 dark:bg-slate-900">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center">
                         <FileText className="w-5 h-5 mr-2 text-primary" />
-                        Sale Details
+                        {selectedSale.isPending ? 'Pending Sale Details' : 'Sale Details'}
                     </h3>
-                    <button onClick={() => setSelectedSale(null)} className="text-slate-400 hover:text-slate-600 dark:text-slate-300">
-                        <X className="w-6 h-6" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {selectedSale.isPending && (
+                            <span className="px-2 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 font-bold uppercase">
+                                Pending
+                            </span>
+                        )}
+                        <button onClick={() => setSelectedSale(null)} className="text-slate-400 hover:text-slate-600 dark:text-slate-300">
+                            <X className="w-6 h-6" />
+                        </button>
+                    </div>
                 </div>
                 
                 <div className="p-6">
+                    {selectedSale.isPending && (selectedSale as any).customerName && (
+                        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-lg">
+                            <div className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400">Customer</div>
+                            <div className="text-sm font-bold text-slate-800 dark:text-slate-100">{(selectedSale as any).customerName}</div>
+                            {(selectedSale as any).notes && (
+                                <div className="mt-2 pt-2 border-t border-blue-100 dark:border-blue-800/50 italic text-xs text-slate-500 dark:text-slate-400">
+                                    <span className="font-bold non-italic mr-1">Notes:</span> {(selectedSale as any).notes}
+                                </div>
+                            )}
+                        </div>
+                    )}
                     <div className="flex justify-between items-start mb-6 text-sm">
                         <div>
                             <span className="text-slate-500 dark:text-slate-400 block">Date</span>
@@ -348,12 +408,12 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, currencySymbo
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 dark:divide-slate-700 bg-white dark:bg-slate-800">
-                                {selectedSale.items.map((item, idx) => (
+                                {selectedSale.items.map((item: any, idx: number) => (
                                     <tr key={idx}>
                                         <td className="px-4 py-2 text-sm text-slate-800 dark:text-slate-100">{item.name}</td>
                                         <td className="px-4 py-2 text-sm text-slate-600 dark:text-slate-300 text-right">{item.quantity}</td>
                                         <td className="px-4 py-2 text-sm text-red-500 text-right">
-                                            {item.discount ? `-${currencySymbol}${item.discount}` : '-'}
+                                            {item.discount ? `${currencySymbol}${item.discount}` : '-'}
                                         </td>
                                         <td className="px-4 py-2 text-sm text-slate-800 dark:text-slate-100 font-medium text-right">
                                             {currencySymbol}{((item.quantity * item.priceAtSale) - (item.discount || 0)).toFixed(2)}

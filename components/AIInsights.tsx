@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { InventoryItem, SaleRecord } from '../types';
+import { InventoryItem, SaleRecord, PendingSale } from '../types';
 import { generateBusinessInsights } from '../services/geminiService';
 import { Brain, Sparkles, RefreshCcw, Calendar, MessageSquare, Clock } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -7,13 +7,19 @@ import ReactMarkdown from 'react-markdown';
 interface AIInsightsProps {
   inventory: InventoryItem[];
   sales: SaleRecord[];
+  pendingSales: PendingSale[];
 }
 
 type TimeRange = '7days' | '30days' | '90days' | 'all' | 'custom';
 
-export const AIInsights: React.FC<AIInsightsProps> = ({ inventory, sales }) => {
+export const AIInsights: React.FC<AIInsightsProps> = ({ inventory, sales, pendingSales }) => {
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  
+  // Combine sales for analysis
+  const allSalesCombined = React.useMemo(() => {
+    return [...sales, ...pendingSales];
+  }, [sales, pendingSales]);
   
   // Filters
   const [timeRange, setTimeRange] = useState<TimeRange>('30days');
@@ -55,7 +61,7 @@ export const AIInsights: React.FC<AIInsightsProps> = ({ inventory, sales }) => {
             break;
     }
 
-    const result = await generateBusinessInsights(inventory, sales, startDate, endDate, customQuestion);
+    const result = await generateBusinessInsights(inventory, allSalesCombined, startDate, endDate, customQuestion);
     setAnalysis(result);
     setLoading(false);
   };

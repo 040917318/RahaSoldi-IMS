@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useRef } from 'react';
-import { InventoryItem, SaleRecord } from '../types';
+import { InventoryItem, SaleRecord, PendingSale } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ComposedChart, Line, AreaChart, Area } from 'recharts';
 import { TrendingUp, TrendingDown, Scale, Wallet, Calendar, Filter, Percent, DollarSign, Activity, Tag, Download, Printer, FileText, Loader2, Package } from 'lucide-react';
 import { exportToCSV } from '../utils';
@@ -11,13 +11,18 @@ import { useReactToPrint } from 'react-to-print';
 interface FinancialReportProps {
   inventory: InventoryItem[];
   sales: SaleRecord[];
+  pendingSales: PendingSale[];
   currencySymbol: string;
 }
 
-export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sales, currencySymbol }) => {
+export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sales, pendingSales, currencySymbol }) => {
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y' | 'all'>('30d');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
+
+  const allSalesCombined = useMemo(() => {
+    return [...sales, ...pendingSales];
+  }, [sales, pendingSales]);
 
   const handlePrint = useReactToPrint({
     contentRef: reportRef,
@@ -80,10 +85,10 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
     
     const startDate = getStartDate();
     
-    const fSales = sales.filter(s => new Date(s.timestamp) >= startDate);
+    const fSales = allSalesCombined.filter(s => new Date(s.timestamp) >= startDate);
     
     return { filteredSales: fSales };
-  }, [sales, timeRange]);
+  }, [allSalesCombined, timeRange]);
 
   // 2. Aggregate Data for Timeline Charts
   const chartData = useMemo(() => {
@@ -101,7 +106,7 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
       if (!dataMap.has(key)) dataMap.set(key, { date: key, revenue: 0, grossProfit: 0, netIncome: 0, discount: 0 });
       
       const current = dataMap.get(key)!;
-      const saleDiscount = sale.items.reduce((sum, i) => sum + (i.discount || 0), 0);
+      const saleDiscount = sale.items.reduce((sum: number, i) => sum + (i.discount || 0), 0);
       
       current.revenue += sale.totalAmount;
       current.grossProfit += sale.totalProfit;
@@ -116,7 +121,7 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
   // 3. Calculate Summary Metrics for the period
   const metrics = useMemo(() => {
     const totalRevenue = filteredSales.reduce((acc, s) => acc + s.totalAmount, 0);
-    const totalDiscount = filteredSales.reduce((acc, s) => acc + s.items.reduce((iAcc, i) => iAcc + (i.discount || 0), 0), 0);
+    const totalDiscount = filteredSales.reduce((acc, s) => acc + s.items.reduce((iAcc: number, i) => iAcc + (i.discount || 0), 0), 0);
     
     // COGS = Revenue - Gross Profit (in our app Sale.totalProfit is actually Gross Profit: Price - Cost)
     const totalGrossProfit = filteredSales.reduce((acc, s) => acc + s.totalProfit, 0);
@@ -133,7 +138,7 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
     // Top Selling Items
     const itemSales: Record<string, { name: string, revenue: number, quantity: number }> = {};
     filteredSales.forEach(sale => {
-      sale.items.forEach(item => {
+      sale.items.forEach((item: any) => {
         if (!itemSales[item.itemId]) {
           itemSales[item.itemId] = { name: item.name, revenue: 0, quantity: 0 };
         }

@@ -110,9 +110,8 @@ export const PendingSalesManager: React.FC<PendingSalesManagerProps> = ({
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
-                      if(window.confirm('Delete this pending record? Stock will not be returned automatically.')) {
-                        onCancel(sale.id);
-                      }
+                      console.log("XCircle button clicked for sale:", sale.id);
+                      onCancel(sale.id);
                     }}
                     className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                     title="Cancel/Delete Record"
