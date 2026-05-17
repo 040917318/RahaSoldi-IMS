@@ -382,7 +382,7 @@ const App: React.FC = () => {
   }, [isOnline, pendingActions]);
 
 
-  const updateSupabaseInventory = async (items: SaleItem[]) => {
+  const updateSupabaseInventory = async (items: SaleItem[], isRestock = false) => {
     for (const item of items) {
       const qtyKey = dbKeys.quantity || 'quantity';
       const updateKey = dbKeys.lastUpdated || 'last_updated';
@@ -390,7 +390,7 @@ const App: React.FC = () => {
       const { data: curr } = await supabase.from('inventory').select(qtyKey).eq('id', item.itemId).single();
       if (curr) {
           const currentQty = Number((curr as any)[qtyKey] ?? 0);
-          const newQty = currentQty - item.quantity;
+          const newQty = isRestock ? currentQty + item.quantity : currentQty - item.quantity;
           const payload: any = {};
           payload[qtyKey] = newQty;
           payload[updateKey] = new Date().toISOString();
@@ -833,8 +833,44 @@ const App: React.FC = () => {
   const handleCancelPendingSale = async (saleId: string | number) => {
     console.log("Delete button clicked for saleId:", saleId);
     
-    // Optimistic UI update
-    const oldPending = [...pendingSales];
+    const saleToCancel = pendingSales.find(s => String(s.id) === String(saleId));
+    if (!saleToCancel) return;
+
+    // 1. Restore Inventory Stock
+    const newInventory = [...inventory];
+    saleToCancel.items.forEach(saleItem => {
+      const productIndex = newInventory.findIndex(p => p.id === saleItem.itemId);
+      if (productIndex > -1) {
+        const oldQty = newInventory[productIndex].quantity;
+        const newQty = oldQty + saleItem.quantity;
+        newInventory[productIndex] = { 
+          ...newInventory[productIndex], 
+          quantity: newQty, 
+          lastUpdated: new Date().toISOString() 
+        };
+        
+        logAction(
+          saleItem.itemId, 
+          saleItem.name, 
+          'adjustment', 
+          `Cancelled pending sale for ${saleToCancel.customerName}. Stock returned: ${oldQty} -> ${newQty}`
+        );
+
+        // If offline, queue the inventory update specifically for this item
+        if (!isOnline) {
+          const updatedTimestamp = new Date().toISOString();
+          const payload: any = {};
+          payload[dbKeys.quantity || 'quantity'] = newQty;
+          payload[dbKeys.lastUpdated || 'last_updated'] = updatedTimestamp;
+          queueAction({ type: 'UPDATE_ITEM', payload: { id: saleItem.itemId, updates: payload } });
+        }
+      }
+    });
+
+    setInventory(newInventory);
+    persist('inventory', newInventory);
+
+    // 2. Remove Pending Sale from state
     const newPending = pendingSales.filter(s => String(s.id) !== String(saleId));
     setPendingSales(newPending);
     persist('pendingSales', newPending);
@@ -846,20 +882,24 @@ const App: React.FC = () => {
     }
 
     try {
-        console.log("Online: Sending delete request to Supabase...");
+        console.log("Online: Sending delete and restock requests...");
+        
+        // Update Supabase Inventory (Restock)
+        await updateSupabaseInventory(saleToCancel.items, true);
+        
+        // Delete the record
         const { error: deleteError } = await supabase.from('pending_sales').delete().eq('id', saleId);
         
         if (deleteError) {
             console.error("Database delete failed:", deleteError);
-            // If it's a 4xx or 5xx, we might want to queue it
             queueAction({ type: 'CANCEL_PENDING', payload: { id: saleId } });
             setFetchError(`Cloud delete failed: ${deleteError.message}. Action queued for retry.`);
         } else {
-            console.log("Successfully deleted from cloud database");
+            console.log("Successfully deleted and restocked in cloud database");
         }
     } catch (err: any) {
         console.error("Error in handleCancelPendingSale:", err);
-        setFetchError(err.message || "Failed to delete record from cloud");
+        setFetchError(err.message || "Failed to process cancellation in cloud");
         queueAction({ type: 'CANCEL_PENDING', payload: { id: saleId } });
     }
   };
@@ -1072,7 +1112,7 @@ const App: React.FC = () => {
           <motion.button 
             whileTap={{ scale: 0.9 }}
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2.5 rounded-xl bg-indigo-500 text-white shadow-lg shadow-indigo-500/30"
+            className="p-2.5 rounded-xl bg-[#228B22] text-white shadow-lg shadow-[#228B22]/30"
           >
             {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </motion.button>

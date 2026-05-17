@@ -271,6 +271,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ inventory, sales, pendingS
                 Requires: <span className="text-white font-bold">Restock Action</span>
               </p>
             </div>
+
+            {/* Quick View Details for Low Stock */}
+            {metrics.lowStockCount > 0 && (
+              <div className="mt-4 p-3 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 space-y-2 max-h-[100px] overflow-y-auto custom-scrollbar">
+                {inventory
+                  .filter(item => item.quantity <= item.lowStockThreshold)
+                  .slice(0, 5)
+                  .map(item => (
+                    <div key={item.id} className="flex justify-between items-center text-[10px] text-rose-100/80 border-b border-white/5 pb-1 last:border-0 hover:text-white transition-colors">
+                      <span className="truncate max-w-[100px]">{item.name}</span>
+                      <span className="font-black bg-rose-500/20 px-1.5 py-0.5 rounded text-white">{item.quantity} left</span>
+                    </div>
+                  ))
+                }
+                {metrics.lowStockCount > 5 && (
+                   <div className="text-[9px] text-rose-200/50 text-center italic pt-1">
+                      + {metrics.lowStockCount - 5} more items
+                   </div>
+                )}
+              </div>
+            )}
           </div>
           
           <div className="bg-white/15 backdrop-blur-xl p-4 rounded-2xl border border-white/25 shadow-lg group-hover:rotate-6 transition-transform duration-300">
@@ -291,6 +312,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ inventory, sales, pendingS
             <h3 className="text-4xl font-extrabold tracking-tighter drop-shadow-sm">
               {currencySymbol}{metrics.totalPendingAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </h3>
+            
+            {/* Quick View Details for Pending Payments */}
+            {metrics.pendingCount > 0 && (
+              <div className="mt-4 p-3 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 space-y-2 max-h-[100px] overflow-y-auto custom-scrollbar">
+                {pendingSales
+                  .slice(0, 5)
+                  .map(sale => (
+                    <div key={sale.id} className="flex justify-between items-center text-[10px] text-sky-100/80 border-b border-white/5 pb-1 last:border-0 hover:text-white transition-colors">
+                      <span className="truncate max-w-[100px] font-medium">{sale.customerName || 'Unknown'}</span>
+                      <span className="font-black bg-sky-500/20 px-1.5 py-0.5 rounded text-white">{currencySymbol}{sale.totalAmount.toFixed(2)}</span>
+                    </div>
+                  ))
+                }
+                {metrics.pendingCount > 5 && (
+                   <div className="text-[9px] text-sky-200/50 text-center italic pt-1">
+                      + {metrics.pendingCount - 5} more loans
+                   </div>
+                )}
+              </div>
+            )}
+
             <div className="mt-5 flex items-center gap-3 bg-white/10 backdrop-blur-md self-start px-4 py-1.5 rounded-xl border border-white/15 shadow-sm group-hover:bg-white/15 transition-colors">
               <div className="flex items-center justify-center w-5 h-5 rounded-full bg-sky-500/20">
                   <Clock className="w-3 h-3 text-sky-300" />
@@ -320,6 +362,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ inventory, sales, pendingS
               <h3 className="text-4xl font-extrabold tracking-tighter drop-shadow-sm">
                 {metrics.totalDiscrepancyCount}
               </h3>
+
+              {/* Quick View Details for Audit Conflicts */}
+              {metrics.totalDiscrepancyCount > 0 && (
+                <div className="mt-4 p-3 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 space-y-2 max-h-[100px] overflow-y-auto custom-scrollbar">
+                  {auditLogs
+                    .filter(log => log.action === 'adjustment' && log.details.includes('[Reason: Unrecorded Sale]'))
+                    .slice(0, 5)
+                    .map(log => (
+                      <div key={log.id} className="flex justify-between items-start text-[10px] text-amber-100/80 border-b border-white/5 pb-1 last:border-0 hover:text-white transition-colors">
+                        <span className="truncate max-w-[120px]">{log.details.split('[Reason:')[0].replace('Stock discrepancy identified for ', '').replace('Manual adjustment for ', '')}</span>
+                        <div className="flex flex-col items-end shrink-0 ml-2">
+                          <span className="font-bold text-amber-300">Fix Applied</span>
+                          <span className="opacity-50 text-[8px]">{new Date(log.timestamp).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    ))
+                  }
+                  {metrics.totalDiscrepancyCount > 5 && (
+                     <div className="text-[9px] text-amber-200/50 text-center italic pt-1">
+                        + {metrics.totalDiscrepancyCount - 5} more issues
+                     </div>
+                  )}
+                </div>
+              )}
+
               <div className="mt-5 flex items-center gap-3 bg-white/10 backdrop-blur-md self-start px-4 py-1.5 rounded-xl border border-white/15 shadow-sm group-hover:bg-white/15 transition-colors">
                 <div className="flex items-center justify-center w-5 h-5 rounded-full bg-orange-500/20">
                     <ShieldAlert className="w-3 h-3 text-orange-300" />

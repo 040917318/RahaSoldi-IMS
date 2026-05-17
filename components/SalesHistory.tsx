@@ -278,12 +278,12 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800 dark:text-slate-100">
                             {currencySymbol}{sale.totalAmount.toFixed(2)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm space-x-4">
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                             <button 
                                 onClick={() => setSelectedSale(sale)}
-                                className="text-primary hover:text-blue-800 inline-flex items-center font-medium"
+                                className="bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 dark:hover:text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center ml-auto shadow-sm hover:shadow-indigo-500/20 active:scale-95 border border-indigo-200 dark:border-indigo-500/20"
                             >
-                                <Eye className="w-4 h-4 mr-1" /> View
+                                <Eye className="w-4 h-4 mr-2" /> View Details
                             </button>
                         </td>
                     </tr>
@@ -339,8 +339,8 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
                         {sale.items.reduce((sum, i) => sum + i.quantity, 0)} items
                     </span>
                     <div className="flex items-center space-x-4">
-                        <button className="text-primary text-sm font-medium flex items-center">
-                            Details <ChevronRight className="w-4 h-4 ml-1" />
+                        <button className="bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center border border-indigo-100 dark:border-indigo-500/20">
+                            Details <ChevronRight className="w-3 h-3 ml-1" />
                         </button>
                     </div>
                 </div>
@@ -355,8 +355,8 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
 
       {/* Detail Modal */}
       {selectedSale && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-fade-in">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-start justify-center p-4 backdrop-blur-sm sm:pt-10 md:pt-20">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-fade-in relative mt-4 md:mt-0">
                 <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center bg-slate-50 dark:bg-slate-900">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center">
                         <FileText className="w-5 h-5 mr-2 text-primary" />
@@ -375,6 +375,20 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
                 </div>
                 
                 <div className="p-6">
+                    {/* First View Summary Section */}
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-4 rounded-xl text-white shadow-lg shadow-indigo-500/20 relative overflow-hidden group">
+                           <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+                           <span className="text-[10px] uppercase font-black tracking-widest opacity-80 block mb-1">Total Amount</span>
+                           <span className="text-2xl font-black tracking-tighter drop-shadow-md">{currencySymbol}{selectedSale.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 rounded-xl text-white shadow-lg shadow-emerald-500/20 relative overflow-hidden group">
+                           <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+                           <span className="text-[10px] uppercase font-black tracking-widest opacity-80 block mb-1">Net Profit</span>
+                           <span className="text-2xl font-black tracking-tighter drop-shadow-md">{currencySymbol}{selectedSale.totalProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                    </div>
+
                     {selectedSale.isPending && (selectedSale as any).customerName && (
                         <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-lg">
                             <div className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400">Customer</div>
@@ -386,36 +400,39 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
                             )}
                         </div>
                     )}
-                    <div className="flex justify-between items-start mb-6 text-sm">
+                    
+                    <div className="flex justify-between items-start mb-6 text-xs bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-700/50">
                         <div>
-                            <span className="text-slate-500 dark:text-slate-400 block">Date</span>
-                            <span className="font-medium text-slate-800 dark:text-slate-100">{formatDate(selectedSale.timestamp)}</span>
+                            <span className="text-slate-500 dark:text-slate-400 block pb-0.5">Date & Time</span>
+                            <span className="font-bold text-slate-800 dark:text-slate-100">{formatDate(selectedSale.timestamp)}</span>
                         </div>
                         <div className="text-right">
-                             <span className="text-slate-500 dark:text-slate-400 block">Transaction ID</span>
-                             <span className="font-mono text-xs text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">{selectedSale.id.slice(-8)}</span>
+                             <span className="text-slate-500 dark:text-slate-400 block pb-0.5">Transaction ID</span>
+                             <span className="font-mono text-[10px] text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-500/10 px-2 py-1 rounded">{selectedSale.id}</span>
                         </div>
                     </div>
 
-                    <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden mb-6">
+                    <div className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Itemized List</div>
+                    <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden mb-6 max-h-[300px] overflow-y-auto custom-scrollbar">
                         <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-                            <thead className="bg-slate-50 dark:bg-slate-900">
+                            <thead className="bg-slate-50 dark:bg-slate-900 sticky top-0 z-10 shadow-sm">
                                 <tr>
-                                    <th className="px-4 py-2 text-left text-xs font-bold text-slate-500 dark:text-slate-400">Item</th>
-                                    <th className="px-4 py-2 text-right text-xs font-bold text-slate-500 dark:text-slate-400">Qty</th>
-                                    <th className="px-4 py-2 text-right text-xs font-bold text-slate-500 dark:text-slate-400">Discount</th>
-                                    <th className="px-4 py-2 text-right text-xs font-bold text-slate-500 dark:text-slate-400">Total</th>
+                                    <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Item Description</th>
+                                    <th className="px-4 py-3 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Price</th>
+                                    <th className="px-4 py-3 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Qty</th>
+                                    <th className="px-4 py-3 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Total</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 dark:divide-slate-700 bg-white dark:bg-slate-800">
                                 {selectedSale.items.map((item: any, idx: number) => (
-                                    <tr key={idx}>
-                                        <td className="px-4 py-2 text-sm text-slate-800 dark:text-slate-100">{item.name}</td>
-                                        <td className="px-4 py-2 text-sm text-slate-600 dark:text-slate-300 text-right">{item.quantity}</td>
-                                        <td className="px-4 py-2 text-sm text-red-500 text-right">
-                                            {item.discount ? `${currencySymbol}${item.discount}` : '-'}
+                                    <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                                        <td className="px-4 py-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                                            {item.name}
+                                            {item.discount > 0 && <span className="block text-[10px] text-rose-500">Disc: -{currencySymbol}{item.discount}</span>}
                                         </td>
-                                        <td className="px-4 py-2 text-sm text-slate-800 dark:text-slate-100 font-medium text-right">
+                                        <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 text-right">{currencySymbol}{item.priceAtSale.toFixed(2)}</td>
+                                        <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300 text-right font-bold">x{item.quantity}</td>
+                                        <td className="px-4 py-3 text-sm text-slate-800 dark:text-slate-100 font-bold text-right">
                                             {currencySymbol}{((item.quantity * item.priceAtSale) - (item.discount || 0)).toFixed(2)}
                                         </td>
                                     </tr>
@@ -424,19 +441,12 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
                         </table>
                     </div>
 
-                    <div className="space-y-2 border-t border-slate-100 dark:border-slate-700/50 pt-4">
-                        <div className="flex justify-between items-center">
-                            <span className="text-slate-500 dark:text-slate-400 text-sm">Total Amount</span>
-                            <span className="text-xl font-bold text-slate-800 dark:text-slate-100">{currencySymbol}{selectedSale.totalAmount.toFixed(2)}</span>
-                        </div>
-                         <div className="flex justify-between items-center text-sm">
-                            <span className="text-slate-500 dark:text-slate-400">Net Profit</span>
-                            <span className="text-green-600 font-medium">{currencySymbol}{selectedSale.totalProfit.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-xs mt-4 pt-4 border-t border-dashed border-slate-200 dark:border-slate-700">
-                            <span className="text-slate-500 dark:text-slate-400">Recorded By</span>
-                            <span className="text-slate-600 dark:text-slate-300 italic">{selectedSale.recordedBy || 'Unknown'}</span>
-                        </div>
+                    <div className="flex justify-between items-center text-xs mt-4 pt-4 border-t border-dashed border-slate-200 dark:border-slate-700">
+                        <span className="text-slate-500 dark:text-slate-400 flex items-center">
+                            <Clock className="w-3.5 h-3.5 mr-1.5 opacity-50" />
+                            Processed By
+                        </span>
+                        <span className="text-slate-800 dark:text-slate-100 font-bold bg-slate-100 dark:bg-slate-900 px-2 py-1 rounded-md">{selectedSale.recordedBy || 'Unknown'}</span>
                     </div>
                 </div>
                 
