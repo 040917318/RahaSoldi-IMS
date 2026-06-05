@@ -34,13 +34,14 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
 
   const filteredSales = useMemo(() => {
     return combinedSales.filter(sale => {
-      // Search term filter (check if any item name or Sale ID matches)
+      // Search term filter (check if any item name, Sale ID or recordedBy matches)
       const term = searchTerm.toLowerCase();
       const matchesSearch = 
         searchTerm === '' || 
         sale.items.some(item => item.name.toLowerCase().includes(term)) ||
         sale.id.toLowerCase().includes(term) ||
-        (('customerName' in sale) && (sale as any).customerName?.toLowerCase().includes(term));
+        (('customerName' in sale) && (sale as any).customerName?.toLowerCase().includes(term)) ||
+        (sale.recordedBy && sale.recordedBy.toLowerCase().includes(term));
 
       // Date range filter
       let matchesDate = true;
@@ -154,7 +155,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
                     <input
                         type="text"
                         className="block w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-primary focus:border-primary bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-                        placeholder="Search item name or Transaction ID..."
+                        placeholder="Search item, Transaction ID or staff email..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
