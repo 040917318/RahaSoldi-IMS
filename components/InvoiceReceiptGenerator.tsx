@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SaleRecord, PendingSale } from '../types';
-import { FileText, Printer, Search, Plus, Trash2, MessageCircle, Loader2 } from 'lucide-react';
+import { FileText, Printer, Search, Plus, Trash2, MessageCircle, Loader2, X, ExternalLink, Download } from 'lucide-react';
 import logoUrl from '../logo.svg';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -24,6 +24,7 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
   
   const [discount, setDiscount] = useState<number>(0);
   const [applyTax, setApplyTax] = useState<boolean>(false);
+  const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
 
   // Combine sales for searching
   const allSalesCombined = useMemo(() => {
@@ -105,28 +106,105 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
   const taxAmount = applyTax ? totalAfterDiscount * 0.20 : 0;
   const grandTotal = totalAfterDiscount + taxAmount;
 
-  const handlePrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: mode === 'receipt' ? 'Sales_Receipt' : 'Invoice',
-  });
+  const handleDownloadPdf = async () => {
+    if (!printRef.current) return;
+    setIsGeneratingPdf(true);
+    try {
+      const canvas = await html2canvas(printRef.current, { 
+        scale: 1.5, 
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 0.75);
+      
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+      const fileName = `${mode === 'receipt' ? 'Receipt' : 'Invoice'}_${new Date().getTime()}.pdf`;
+      pdf.save(fileName);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Could not generate PDF.');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  const handlePrint = () => {
+    const isIframe = window.self !== window.top;
+    if (isIframe) {
+      setShowPrintModal(true);
+      return;
+    }
+
+    const printElement = printRef.current;
+    if (!printElement) return;
+
+    // Create a temporary container for printing to guarantee compatibility on laptop browsers/iframes
+    const printContainer = document.createElement('div');
+    printContainer.id = 'print-temp-container';
+    printContainer.innerHTML = printElement.innerHTML;
+    printContainer.className = printElement.className;
+
+    // Inject styles specifically for printing
+    const style = document.createElement('style');
+    style.id = 'print-temp-styles';
+    style.innerHTML = `
+      @media print {
+        body > *:not(#print-temp-container) {
+          display: none !important;
+        }
+        #print-temp-container {
+          display: block !important;
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100% !important;
+          background: white !important;
+          color: black !important;
+          padding: 24px !important;
+          margin: 0 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+      }
+    `;
+
+    document.body.appendChild(printContainer);
+    document.head.appendChild(style);
+
+    // Trigger standard browser print on the window context
+    window.print();
+
+    // Clean up DOM elements after the print dialog closes
+    setTimeout(() => {
+      const container = document.getElementById('print-temp-container');
+      if (container) container.remove();
+      const styleTag = document.getElementById('print-temp-styles');
+      if (styleTag) styleTag.remove();
+    }, 500);
+  };
 
   const handleWhatsAppShare = async () => {
     if (!printRef.current) return;
     setIsGeneratingPdf(true);
     try {
       const canvas = await html2canvas(printRef.current, { 
-        scale: 2, 
+        scale: 1.5, 
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff'
       });
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/jpeg', 0.75);
       
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
       const pdfBlob = pdf.output('blob');
       const fileName = `${mode === 'receipt' ? 'Receipt' : 'Invoice'}_${new Date().getTime()}.pdf`;
       const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
@@ -435,6 +513,100 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
         </div>
         </div>
       </div>
-    </div>
+
+      {showPrintModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 dark:border-slate-700 relative">
+            <button 
+              onClick={() => setShowPrintModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="text-center mb-6">
+              <div className="mx-auto w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center mb-3">
+                <Printer className="w-6 h-6 text-blue-600" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Print Document</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                Since you are viewing this app inside the developer preview iframe, direct print connections may be restricted by your browser.
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              <button
+                onClick={async () => {
+                  setShowPrintModal(false);
+                  await handleDownloadPdf();
+                }}
+                className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all shadow-sm"
+              >
+                <Download className="w-4 h-4" />
+                <span>Save & Print PDF (Compressed)</span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  window.open(window.location.href, '_blank');
+                  setShowPrintModal(false);
+                }}
+                className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 font-medium rounded-xl transition-colors"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>Open in New Tab to Print</span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  setShowPrintModal(false);
+                  setTimeout(() => {
+                    const printElement = printRef.current;
+                    if (!printElement) return;
+                    const printContainer = document.createElement('div');
+                    printContainer.id = 'print-temp-container';
+                    printContainer.innerHTML = printElement.innerHTML;
+                    printContainer.className = printElement.className;
+                    const style = document.createElement('style');
+                    style.id = 'print-temp-styles';
+                    style.innerHTML = `
+                      @media print {
+                        body > *:not(#print-temp-container) {
+                          display: none !important;
+                        }
+                        #print-temp-container {
+                          display: block !important;
+                          position: absolute !important;
+                          left: 0 !important;
+                          top: 0 !important;
+                          width: 100% !important;
+                          background: white !important;
+                          color: black !important;
+                          padding: 24px !important;
+                          margin: 0 !important;
+                          -webkit-print-color-adjust: exact !important;
+                          print-color-adjust: exact !important;
+                        }
+                      }
+                    `;
+                    document.body.appendChild(printContainer);
+                    document.head.appendChild(style);
+                    window.print();
+                    setTimeout(() => {
+                      const container = document.getElementById('print-temp-container');
+                      if (container) container.remove();
+                      const styleTag = document.getElementById('print-temp-styles');
+                      if (styleTag) styleTag.remove();
+                    }, 500);
+                  }, 100);
+                }}
+                className="w-full py-2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-medium transition-colors text-center"
+              >
+                Try direct browser print anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
   );
 };

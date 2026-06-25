@@ -41,7 +41,9 @@ import {
   AlertCircle,
   RefreshCcw,
   Landmark,
-  ChevronRight
+  ChevronRight,
+  X,
+  ExternalLink
 } from 'lucide-react';
 import { exportToCSV } from '../utils';
 import html2canvas from 'html2canvas';
@@ -70,6 +72,7 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y' | 'all'>('30d');
   const [activeTab, setActiveTab] = useState<'executive' | 'pnl' | 'expenses' | 'forecasting'>('executive');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
   // General Income & Expenses Taxes Rate
@@ -106,10 +109,60 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
   }, [sales, pendingSales]);
 
   // Printing engine
-  const handlePrint = useReactToPrint({
-    contentRef: reportRef,
-    documentTitle: `Accounting_Report_${timeRange}_${new Date().toISOString().split('T')[0]}`,
-  });
+  const handlePrint = () => {
+    const isIframe = window.self !== window.top;
+    if (isIframe) {
+      setShowPrintModal(true);
+      return;
+    }
+
+    const printElement = reportRef.current;
+    if (!printElement) return;
+
+    // Create a temporary container for printing to guarantee compatibility on laptop browsers/iframes
+    const printContainer = document.createElement('div');
+    printContainer.id = 'print-temp-container';
+    printContainer.innerHTML = printElement.innerHTML;
+    printContainer.className = printElement.className;
+
+    // Inject styles specifically for printing
+    const style = document.createElement('style');
+    style.id = 'print-temp-styles';
+    style.innerHTML = `
+      @media print {
+        body > *:not(#print-temp-container) {
+          display: none !important;
+        }
+        #print-temp-container {
+          display: block !important;
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100% !important;
+          background: white !important;
+          color: black !important;
+          padding: 24px !important;
+          margin: 0 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+      }
+    `;
+
+    document.body.appendChild(printContainer);
+    document.head.appendChild(style);
+
+    // Trigger standard browser print on the window context
+    window.print();
+
+    // Clean up DOM elements after the print dialog closes
+    setTimeout(() => {
+      const container = document.getElementById('print-temp-container');
+      if (container) container.remove();
+      const styleTag = document.getElementById('print-temp-styles');
+      if (styleTag) styleTag.remove();
+    }, 500);
+  };
 
   // Export to PDF
   const handleDownloadPdf = async () => {
@@ -119,7 +172,7 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
       reportRef.current.classList.add('pdf-exporting');
       
       const canvas = await html2canvas(reportRef.current, { 
-        scale: 2,
+        scale: 1.5,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff'
@@ -127,7 +180,7 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
       
       reportRef.current.classList.remove('pdf-exporting');
 
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/jpeg', 0.75);
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -137,7 +190,7 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
       pdf.save(`Financial_Performance_Statement_${timeRange}_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -1439,6 +1492,100 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
         )}
 
       </div> {/* End of Printable Container */}
+
+      {showPrintModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 dark:border-slate-700 relative">
+            <button 
+              onClick={() => setShowPrintModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="text-center mb-6">
+              <div className="mx-auto w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center mb-3">
+                <Printer className="w-6 h-6 text-blue-600" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Print Report</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                Since you are viewing this app inside the developer preview iframe, direct print connections may be restricted by your browser.
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              <button
+                onClick={async () => {
+                  setShowPrintModal(false);
+                  await handleDownloadPdf();
+                }}
+                className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all shadow-sm"
+              >
+                <Download className="w-4 h-4" />
+                <span>Save & Print PDF (Compressed)</span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  window.open(window.location.href, '_blank');
+                  setShowPrintModal(false);
+                }}
+                className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 font-medium rounded-xl transition-colors"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>Open in New Tab to Print</span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  setShowPrintModal(false);
+                  setTimeout(() => {
+                    const printElement = reportRef.current;
+                    if (!printElement) return;
+                    const printContainer = document.createElement('div');
+                    printContainer.id = 'print-temp-container';
+                    printContainer.innerHTML = printElement.innerHTML;
+                    printContainer.className = printElement.className;
+                    const style = document.createElement('style');
+                    style.id = 'print-temp-styles';
+                    style.innerHTML = `
+                      @media print {
+                        body > *:not(#print-temp-container) {
+                          display: none !important;
+                        }
+                        #print-temp-container {
+                          display: block !important;
+                          position: absolute !important;
+                          left: 0 !important;
+                          top: 0 !important;
+                          width: 100% !important;
+                          background: white !important;
+                          color: black !important;
+                          padding: 24px !important;
+                          margin: 0 !important;
+                          -webkit-print-color-adjust: exact !important;
+                          print-color-adjust: exact !important;
+                        }
+                      }
+                    `;
+                    document.body.appendChild(printContainer);
+                    document.head.appendChild(style);
+                    window.print();
+                    setTimeout(() => {
+                      const container = document.getElementById('print-temp-container');
+                      if (container) container.remove();
+                      const styleTag = document.getElementById('print-temp-styles');
+                      if (styleTag) styleTag.remove();
+                    }, 500);
+                  }, 100);
+                }}
+                className="w-full py-2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-medium transition-colors text-center"
+              >
+                Try direct browser print anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

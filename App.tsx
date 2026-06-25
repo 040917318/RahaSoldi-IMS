@@ -1152,24 +1152,41 @@ const App: React.FC = () => {
                 )}
             </div>
 
-            <div className="mt-8 pt-8 border-t border-white/10 relative z-10">
-               <div className="flex items-center space-x-4 mb-6 px-6">
-                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-xl font-bold shadow-xl">
-                      {session.user.email?.[0].toUpperCase()}
+            <div className="mt-6 pt-6 border-t border-white/5 relative z-10 px-2">
+               <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-lg">
+                   <div className="flex items-center space-x-3 mb-3">
+                       <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-lg font-bold shadow-md text-white">
+                          {session.user.email?.[0].toUpperCase()}
+                       </div>
+                       <div className="overflow-hidden">
+                          <div className="flex items-center space-x-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <p className="text-[9px] text-indigo-300 uppercase font-black tracking-widest leading-none">{userRole}</p>
+                          </div>
+                          <p className="text-xs font-bold text-white truncate max-w-[180px] mt-0.5" title={session.user.email}>{session.user.email}</p>
+                       </div>
                    </div>
-                   <div>
-                      <p className="text-[10px] text-indigo-300 uppercase font-black tracking-widest">{userRole}</p>
-                      <p className="text-sm font-bold text-white truncate max-w-[200px]" title={session.user.email}>{session.user.email}</p>
+                   
+                   <div className="flex gap-2 mb-3">
+                       <div className={`flex-1 flex items-center justify-center text-[9px] font-bold uppercase tracking-wider py-1 px-2 rounded-lg border transition-all duration-300 ${isOnline ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300' : 'bg-rose-500/10 border-rose-500/20 text-rose-300'}`}>
+                           {isOnline ? 'Online' : 'Offline'}
+                       </div>
+                       {pendingActions > 0 && (
+                           <div className="flex-1 flex items-center justify-center text-[9px] font-bold uppercase tracking-wider py-1 px-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 animate-pulse">
+                               {pendingActions} Sync
+                           </div>
+                       )}
                    </div>
+
+                   <motion.button 
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleSignOut}
+                      className="w-full flex items-center justify-center space-x-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 hover:border-rose-500/30 text-rose-300 py-2.5 rounded-xl font-bold text-xs transition-all shadow-sm"
+                  >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Terminate Session</span>
+                  </motion.button>
                </div>
-               <motion.button 
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleSignOut}
-                  className="w-full flex items-center justify-center space-x-3 bg-rose-500/10 border border-rose-500/20 text-rose-300 py-4 rounded-2xl font-bold text-sm"
-              >
-                  <LogOut className="w-5 h-5" />
-                  <span>Terminate Session</span>
-              </motion.button>
             </div>
           </motion.div>
         )}
