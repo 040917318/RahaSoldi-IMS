@@ -356,8 +356,8 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
 
       {/* Detail Modal */}
       {selectedSale && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-start justify-center p-2 sm:p-4 pt-4 sm:pt-10 backdrop-blur-sm">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-fade-in relative my-0 sm:my-2 max-h-[92vh] flex flex-col">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center p-2 sm:p-4 pt-3 sm:pt-8 pointer-events-auto">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in relative max-h-[calc(100vh-3rem)] flex flex-col">
                 <div className="px-3.5 sm:px-5 py-3 sm:py-4 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center bg-slate-50 dark:bg-slate-900 shrink-0">
                     <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center">
                         <FileText className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2 text-primary" />
