@@ -159,9 +159,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ inventory, sales, pendingS
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316'];
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-800 p-7 rounded-2xl shadow-xl border border-emerald-400/30 flex items-start justify-between relative overflow-hidden group hover:shadow-emerald-500/30 transition-all duration-500 transform hover:-translate-y-1">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-800 p-5 sm:p-7 rounded-2xl shadow-xl border border-emerald-400/30 flex items-start justify-between relative overflow-hidden group hover:shadow-emerald-500/30 transition-all duration-500 transform hover:-translate-y-1">
           <div className="absolute -right-6 -bottom-6 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-700 rotate-12">
             <CediSign className="w-32 h-32" />
           </div>
@@ -170,27 +170,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ inventory, sales, pendingS
           <div className="relative z-10 text-white">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-2.5 h-2.5 rounded-full bg-emerald-300 shadow-[0_0_8px_rgba(110,231,183,0.8)] animate-pulse" />
-              <p className="text-xs font-bold text-emerald-100 tracking-[0.1em] uppercase">Total Revenue</p>
+              <p className="text-[11px] sm:text-xs font-bold text-emerald-100 tracking-[0.1em] uppercase">Total Revenue</p>
             </div>
-            <h3 className="text-4xl font-extrabold tracking-tighter drop-shadow-sm">
+            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tighter drop-shadow-sm">
               {currencySymbol}{metrics.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </h3>
-            <div className="mt-5 flex items-center gap-3 bg-white/10 backdrop-blur-md self-start px-4 py-1.5 rounded-xl border border-white/15 shadow-sm group-hover:bg-white/15 transition-colors">
+            <div className="mt-3 sm:mt-5 flex items-center gap-2 sm:gap-3 bg-white/10 backdrop-blur-md self-start px-3 sm:px-4 py-1.5 rounded-xl border border-white/15 shadow-sm group-hover:bg-white/15 transition-colors">
               <div className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/20">
                   <TrendingUp className="w-3 h-3 text-emerald-300" />
               </div>
-              <p className="text-[11px] font-semibold text-emerald-50 leading-none">
+              <p className="text-[10px] sm:text-[11px] font-semibold text-emerald-50 leading-none">
                 Lifetime Sales: <span className="text-white font-bold">100% Growth</span>
               </p>
             </div>
           </div>
           
-          <div className="bg-white/15 backdrop-blur-xl p-4 rounded-2xl border border-white/25 shadow-lg group-hover:rotate-6 transition-transform duration-300">
-            <CediSign className="w-7 h-7 text-white" />
+          <div className="bg-white/15 backdrop-blur-xl p-3 sm:p-4 rounded-2xl border border-white/25 shadow-lg group-hover:rotate-6 transition-transform duration-300 shrink-0">
+            <CediSign className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
           </div>
         </div>
         {userRole === 'admin' && (
-          <div className="bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-800 p-7 rounded-2xl shadow-xl border border-blue-400/30 flex items-start justify-between relative overflow-hidden group hover:shadow-blue-500/30 transition-all duration-500 transform hover:-translate-y-1">
+          <div className="bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-800 p-5 sm:p-7 rounded-2xl shadow-xl border border-blue-400/30 flex items-start justify-between relative overflow-hidden group hover:shadow-blue-500/30 transition-all duration-500 transform hover:-translate-y-1">
             <div className="absolute -right-6 -bottom-6 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-700 rotate-12">
               <TrendingUp size={140} />
             </div>
@@ -199,28 +199,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ inventory, sales, pendingS
             <div className="relative z-10 text-white">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-blue-300 shadow-[0_0_8px_rgba(147,197,253,0.8)] animate-pulse" />
-                <p className="text-xs font-bold text-blue-100 tracking-[0.1em] uppercase">Net Profit</p>
+                <p className="text-[11px] sm:text-xs font-bold text-blue-100 tracking-[0.1em] uppercase">Net Profit</p>
               </div>
-              <h3 className="text-4xl font-extrabold tracking-tighter drop-shadow-sm">
+              <h3 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tighter drop-shadow-sm">
                 {currencySymbol}{metrics.totalProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h3>
-              <div className="mt-5 flex items-center gap-3 bg-white/10 backdrop-blur-md self-start px-4 py-1.5 rounded-xl border border-white/15 shadow-sm group-hover:bg-white/15 transition-colors">
+              <div className="mt-3 sm:mt-5 flex items-center gap-2 sm:gap-3 bg-white/10 backdrop-blur-md self-start px-3 sm:px-4 py-1.5 rounded-xl border border-white/15 shadow-sm group-hover:bg-white/15 transition-colors">
                 <div className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-500/20">
                     <TrendingUp className="w-3 h-3 text-blue-300" />
                 </div>
-                <p className="text-[11px] font-semibold text-blue-50 leading-none">
+                <p className="text-[10px] sm:text-[11px] font-semibold text-blue-50 leading-none">
                   Efficiency: <span className="text-white font-bold">Optimized</span>
                 </p>
               </div>
             </div>
             
-            <div className="bg-white/15 backdrop-blur-xl p-4 rounded-2xl border border-white/25 shadow-lg group-hover:rotate-6 transition-transform duration-300">
-              <TrendingUp className="w-7 h-7 text-white" />
+            <div className="bg-white/15 backdrop-blur-xl p-3 sm:p-4 rounded-2xl border border-white/25 shadow-lg group-hover:rotate-6 transition-transform duration-300 shrink-0">
+              <TrendingUp className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
             </div>
           </div>
         )}
         {userRole === 'admin' && (
-          <div className="bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-800 p-7 rounded-2xl shadow-xl border border-indigo-400/30 flex items-start justify-between relative overflow-hidden group hover:shadow-indigo-500/30 transition-all duration-500 transform hover:-translate-y-1">
+          <div className="bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-800 p-5 sm:p-7 rounded-2xl shadow-xl border border-indigo-400/30 flex items-start justify-between relative overflow-hidden group hover:shadow-indigo-500/30 transition-all duration-500 transform hover:-translate-y-1">
             <div className="absolute -right-6 -bottom-6 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-700 rotate-12">
               <Package size={140} />
             </div>
@@ -229,52 +229,52 @@ export const Dashboard: React.FC<DashboardProps> = ({ inventory, sales, pendingS
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-indigo-300 shadow-[0_0_8px_rgba(165,180,252,0.8)] animate-pulse" />
-                <p className="text-xs font-bold text-indigo-100 tracking-[0.1em] uppercase">Inventory Value</p>
+                <p className="text-[11px] sm:text-xs font-bold text-indigo-100 tracking-[0.1em] uppercase">Inventory Value</p>
               </div>
-              <h3 className="text-4xl font-extrabold text-white tracking-tighter drop-shadow-sm">
+              <h3 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tighter drop-shadow-sm">
                 {currencySymbol}{metrics.totalInventoryValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h3>
-              <div className="mt-5 flex items-center gap-3 bg-white/10 backdrop-blur-md self-start px-4 py-1.5 rounded-xl border border-white/15 shadow-sm group-hover:bg-white/15 transition-colors">
+              <div className="mt-3 sm:mt-5 flex items-center gap-2 sm:gap-3 bg-white/10 backdrop-blur-md self-start px-3 sm:px-4 py-1.5 rounded-xl border border-white/15 shadow-sm group-hover:bg-white/15 transition-colors">
                 <div className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/20">
                     <TrendingUp className="w-3 h-3 text-emerald-400" />
                 </div>
-                <p className="text-[11px] font-semibold text-indigo-50 leading-none">
+                <p className="text-[10px] sm:text-[11px] font-semibold text-indigo-50 leading-none">
                   Potential: <span className="text-white">{currencySymbol}{metrics.potentialSalesValue.toLocaleString()}</span>
                 </p>
               </div>
             </div>
             
-            <div className="bg-white/15 backdrop-blur-xl p-4 rounded-2xl border border-white/25 shadow-lg group-hover:rotate-6 transition-transform duration-300">
-              <Package className="w-7 h-7 text-white" />
+            <div className="bg-white/15 backdrop-blur-xl p-3 sm:p-4 rounded-2xl border border-white/25 shadow-lg group-hover:rotate-6 transition-transform duration-300 shrink-0">
+              <Package className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
             </div>
           </div>
         )}
-        <div className="bg-gradient-to-br from-rose-700 via-rose-600 to-red-800 p-7 rounded-2xl shadow-xl border border-rose-400/30 flex items-start justify-between relative overflow-hidden group hover:shadow-rose-500/30 transition-all duration-500 transform hover:-translate-y-1">
+        <div className="bg-gradient-to-br from-rose-700 via-rose-600 to-red-800 p-5 sm:p-7 rounded-2xl shadow-xl border border-rose-400/30 flex items-start justify-between relative overflow-hidden group hover:shadow-rose-500/30 transition-all duration-500 transform hover:-translate-y-1">
           <div className="absolute -right-6 -bottom-6 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-700 rotate-12">
             <AlertTriangle size={140} />
           </div>
           <div className="absolute top-0 left-0 w-32 h-32 bg-white/5 rounded-full -ml-16 -mt-16 blur-2xl" />
           
-          <div className="relative z-10 text-white">
+          <div className="relative z-10 text-white w-full">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-2.5 h-2.5 rounded-full bg-rose-300 shadow-[0_0_8px_rgba(252,165,165,0.8)] animate-pulse" />
-              <p className="text-xs font-bold text-rose-100 tracking-[0.1em] uppercase">Low Stock</p>
+              <p className="text-[11px] sm:text-xs font-bold text-rose-100 tracking-[0.1em] uppercase">Low Stock</p>
             </div>
-            <h3 className="text-4xl font-extrabold tracking-tighter drop-shadow-sm">
+            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tighter drop-shadow-sm">
               {metrics.lowStockCount}
             </h3>
-            <div className="mt-5 flex items-center gap-3 bg-white/10 backdrop-blur-md self-start px-4 py-1.5 rounded-xl border border-white/15 shadow-sm group-hover:bg-white/15 transition-colors">
+            <div className="mt-3 sm:mt-5 flex items-center gap-2 sm:gap-3 bg-white/10 backdrop-blur-md self-start px-3 sm:px-4 py-1.5 rounded-xl border border-white/15 shadow-sm group-hover:bg-white/15 transition-colors">
               <div className="flex items-center justify-center w-5 h-5 rounded-full bg-rose-500/20">
                   <AlertTriangle className="w-3 h-3 text-rose-300" />
               </div>
-              <p className="text-[11px] font-semibold text-rose-50 leading-none">
+              <p className="text-[10px] sm:text-[11px] font-semibold text-rose-50 leading-none">
                 Requires: <span className="text-white font-bold">Restock Action</span>
               </p>
             </div>
 
             {/* Quick View Details for Low Stock */}
             {metrics.lowStockCount > 0 && (
-              <div className="mt-4 p-3 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 space-y-2 max-h-[100px] overflow-y-auto custom-scrollbar">
+              <div className="mt-3 p-2.5 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 space-y-1.5 max-h-[100px] overflow-y-auto custom-scrollbar">
                 {inventory
                   .filter(item => item.quantity <= item.lowStockThreshold)
                   .slice(0, 5)
@@ -294,28 +294,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ inventory, sales, pendingS
             )}
           </div>
           
-          <div className="bg-white/15 backdrop-blur-xl p-4 rounded-2xl border border-white/25 shadow-lg group-hover:rotate-6 transition-transform duration-300">
-            <AlertTriangle className="w-7 h-7 text-white" />
+          <div className="bg-white/15 backdrop-blur-xl p-3 sm:p-4 rounded-2xl border border-white/25 shadow-lg group-hover:rotate-6 transition-transform duration-300 shrink-0 ml-2">
+            <AlertTriangle className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
           </div>
         </div>
-        <div className="bg-gradient-to-br from-cyan-700 via-sky-600 to-blue-800 p-7 rounded-2xl shadow-xl border border-sky-400/30 flex items-start justify-between relative overflow-hidden group hover:shadow-sky-500/30 transition-all duration-500 transform hover:-translate-y-1">
+        <div className="bg-gradient-to-br from-cyan-700 via-sky-600 to-blue-800 p-5 sm:p-7 rounded-2xl shadow-xl border border-sky-400/30 flex items-start justify-between relative overflow-hidden group hover:shadow-sky-500/30 transition-all duration-500 transform hover:-translate-y-1">
           <div className="absolute -right-6 -bottom-6 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-700 rotate-12">
             <Clock size={140} />
           </div>
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
           
-          <div className="relative z-10 text-white">
+          <div className="relative z-10 text-white w-full">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-2.5 h-2.5 rounded-full bg-sky-300 shadow-[0_0_8px_rgba(125,211,252,0.8)] animate-pulse" />
-              <p className="text-xs font-bold text-sky-100 tracking-[0.1em] uppercase">Pending Payments</p>
+              <p className="text-[11px] sm:text-xs font-bold text-sky-100 tracking-[0.1em] uppercase">Pending Payments</p>
             </div>
-            <h3 className="text-4xl font-extrabold tracking-tighter drop-shadow-sm">
+            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tighter drop-shadow-sm">
               {currencySymbol}{metrics.totalPendingAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </h3>
             
             {/* Quick View Details for Pending Payments */}
             {metrics.pendingCount > 0 && (
-              <div className="mt-4 p-3 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 space-y-2 max-h-[100px] overflow-y-auto custom-scrollbar">
+              <div className="mt-3 p-2.5 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 space-y-1.5 max-h-[100px] overflow-y-auto custom-scrollbar">
                 {pendingSales
                   .slice(0, 5)
                   .map(sale => (
@@ -333,39 +333,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ inventory, sales, pendingS
               </div>
             )}
 
-            <div className="mt-5 flex items-center gap-3 bg-white/10 backdrop-blur-md self-start px-4 py-1.5 rounded-xl border border-white/15 shadow-sm group-hover:bg-white/15 transition-colors">
+            <div className="mt-3 sm:mt-5 flex items-center gap-2 sm:gap-3 bg-white/10 backdrop-blur-md self-start px-3 sm:px-4 py-1.5 rounded-xl border border-white/15 shadow-sm group-hover:bg-white/15 transition-colors">
               <div className="flex items-center justify-center w-5 h-5 rounded-full bg-sky-500/20">
                   <Clock className="w-3 h-3 text-sky-300" />
               </div>
-              <p className="text-[11px] font-semibold text-sky-50 leading-none">
+              <p className="text-[10px] sm:text-[11px] font-semibold text-sky-50 leading-none">
                 Count: <span className="text-white font-bold">{metrics.pendingCount} Active Loans</span>
               </p>
             </div>
           </div>
           
-          <div className="bg-white/15 backdrop-blur-xl p-4 rounded-2xl border border-white/25 shadow-lg group-hover:rotate-6 transition-transform duration-300">
-            <Clock className="w-7 h-7 text-white" />
+          <div className="bg-white/15 backdrop-blur-xl p-3 sm:p-4 rounded-2xl border border-white/25 shadow-lg group-hover:rotate-6 transition-transform duration-300 shrink-0 ml-2">
+            <Clock className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
           </div>
         </div>
         {userRole === 'admin' && (
-          <div className="bg-gradient-to-br from-amber-600 via-orange-600 to-red-700 p-7 rounded-2xl shadow-xl border border-orange-400/30 flex items-start justify-between relative overflow-hidden group hover:shadow-orange-500/30 transition-all duration-500 transform hover:-translate-y-1">
+          <div className="bg-gradient-to-br from-amber-600 via-orange-600 to-red-700 p-5 sm:p-7 rounded-2xl shadow-xl border border-orange-400/30 flex items-start justify-between relative overflow-hidden group hover:shadow-orange-500/30 transition-all duration-500 transform hover:-translate-y-1">
             <div className="absolute -right-6 -bottom-6 opacity-10 group-hover:opacity-20 group-hover:scale-110 transition-all duration-700 rotate-12">
               <ShieldAlert size={140} />
             </div>
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
             
-            <div className="relative z-10 text-white">
+            <div className="relative z-10 text-white w-full">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-orange-300 shadow-[0_0_8px_rgba(253,186,116,0.8)] animate-pulse" />
-                <p className="text-xs font-bold text-orange-100 tracking-[0.1em] uppercase">Audit Conflicts</p>
+                <p className="text-[11px] sm:text-xs font-bold text-orange-100 tracking-[0.1em] uppercase">Audit Conflicts</p>
               </div>
-              <h3 className="text-4xl font-extrabold tracking-tighter drop-shadow-sm">
+              <h3 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tighter drop-shadow-sm">
                 {metrics.totalDiscrepancyCount}
               </h3>
 
               {/* Quick View Details for Audit Conflicts */}
               {metrics.totalDiscrepancyCount > 0 && (
-                <div className="mt-4 p-3 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 space-y-2 max-h-[100px] overflow-y-auto custom-scrollbar">
+                <div className="mt-3 p-2.5 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 space-y-1.5 max-h-[100px] overflow-y-auto custom-scrollbar">
                   {auditLogs
                     .filter(log => log.action === 'adjustment' && log.details.includes('[Reason: Unrecorded Sale]'))
                     .slice(0, 5)
@@ -387,18 +387,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ inventory, sales, pendingS
                 </div>
               )}
 
-              <div className="mt-5 flex items-center gap-3 bg-white/10 backdrop-blur-md self-start px-4 py-1.5 rounded-xl border border-white/15 shadow-sm group-hover:bg-white/15 transition-colors">
+              <div className="mt-3 sm:mt-5 flex items-center gap-2 sm:gap-3 bg-white/10 backdrop-blur-md self-start px-3 sm:px-4 py-1.5 rounded-xl border border-white/15 shadow-sm group-hover:bg-white/15 transition-colors">
                 <div className="flex items-center justify-center w-5 h-5 rounded-full bg-orange-500/20">
                     <ShieldAlert className="w-3 h-3 text-orange-300" />
                 </div>
-                <p className="text-[11px] font-semibold text-orange-50 leading-none">
+                <p className="text-[10px] sm:text-[11px] font-semibold text-orange-50 leading-none">
                   Status: <span className="text-white font-bold">Requires Verification</span>
                 </p>
               </div>
             </div>
             
-            <div className="bg-white/15 backdrop-blur-xl p-4 rounded-2xl border border-white/25 shadow-lg group-hover:rotate-6 transition-transform duration-300">
-              <ShieldAlert className="w-7 h-7 text-white" />
+            <div className="bg-white/15 backdrop-blur-xl p-3 sm:p-4 rounded-2xl border border-white/25 shadow-lg group-hover:rotate-6 transition-transform duration-300 shrink-0 ml-2">
+              <ShieldAlert className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
             </div>
           </div>
         )}

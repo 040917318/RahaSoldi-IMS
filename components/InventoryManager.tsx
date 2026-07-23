@@ -407,9 +407,9 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
 
       {/* Product Form Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden transform transition-all">
-            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center bg-slate-50 dark:bg-slate-900">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden transform transition-all my-auto max-h-[90vh] flex flex-col">
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center bg-slate-50 dark:bg-slate-900 shrink-0">
               <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">
                 {editingId ? 'Edit Product' : 'Add New Product'}
               </h3>
@@ -417,7 +417,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
                 <span className="text-2xl">&times;</span>
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto">
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Product Name</label>
                 <input
@@ -522,9 +522,9 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
 
       {/* Stock Adjustment Modal */}
       {isAdjustModalOpen && adjustItem && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4 backdrop-blur-sm">
-             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all animate-fade-in">
-                 <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center bg-slate-50 dark:bg-slate-900">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 backdrop-blur-sm">
+             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all animate-fade-in my-auto max-h-[90vh] flex flex-col">
+                 <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center bg-slate-50 dark:bg-slate-900 shrink-0">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center">
                         <ClipboardEdit className="w-5 h-5 mr-2 text-primary" />
                         Adjust Stock
@@ -534,7 +534,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({ inventory, o
                     </button>
                 </div>
                 
-                <form onSubmit={handleStockAdjustment} className="p-6">
+                <form onSubmit={handleStockAdjustment} className="p-5 overflow-y-auto">
                     <div className="mb-6 bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border border-slate-100 dark:border-slate-700/50">
                         <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">Product</div>
                         <div className="text-lg font-bold text-slate-800 dark:text-slate-100">{adjustItem.name}</div>

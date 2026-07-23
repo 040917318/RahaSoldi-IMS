@@ -523,31 +523,31 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
     <div className="space-y-6 animate-fade-in pb-12">
       
       {/* Top Controller Header */}
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 print:hidden">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 sm:gap-4 bg-white dark:bg-slate-800 p-3.5 sm:p-6 rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 print:hidden">
         <div>
            <div className="flex items-center gap-2">
-             <div className="p-2 bg-emerald-500/10 rounded-lg">
-               <Activity className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+             <div className="p-1.5 sm:p-2 bg-emerald-500/10 rounded-lg shrink-0">
+               <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600 dark:text-emerald-400" />
              </div>
              <div>
-               <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
+               <h2 className="text-base sm:text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
                  Executive Financial Center
                </h2>
-               <p className="text-xs text-slate-500 dark:text-slate-400">
+               <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">
                  Detailed cash flow performance, overhead disbursements ledger, estimated taxes, and dynamic CFO forecast simulation.
                </p>
              </div>
            </div>
         </div>
         
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full xl:w-auto">
+        <div className="flex flex-col sm:flex-row items-center gap-2.5 sm:gap-3 w-full xl:w-auto">
           {/* Time range switch */}
-          <div className="flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/50 p-1 rounded-xl w-full sm:w-auto overflow-x-auto">
+          <div className="flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/50 p-1 rounded-xl w-full sm:w-auto overflow-x-auto no-scrollbar">
              {(['7d', '30d', '90d', '1y', 'all'] as const).map(range => (
                <button
                   key={range}
                   onClick={() => setTimeRange(range)}
-                  className={`flex-1 sm:flex-none px-4 py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all whitespace-nowrap ${
+                  className={`flex-1 sm:flex-none px-2.5 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-black uppercase tracking-wider rounded-lg transition-all whitespace-nowrap shrink-0 ${
                     timeRange === range 
                       ? 'bg-indigo-600 text-white shadow-sm' 
                       : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-amber-200'
@@ -559,21 +559,22 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
           </div>
 
           {/* Controls */}
-          <div className="flex gap-2 w-full sm:w-auto shrink-0">
+          <div className="grid grid-cols-3 sm:flex gap-1.5 sm:gap-2 w-full sm:w-auto shrink-0">
             <button
               onClick={handlePrint}
-              className="flex-1 sm:flex-none flex items-center justify-center px-4 py-2 border border-slate-300 dark:border-slate-600 text-xs font-black uppercase tracking-widest rounded-xl text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm transition-all"
+              className="flex items-center justify-center px-2 sm:px-4 py-1.5 sm:py-2 border border-slate-300 dark:border-slate-600 text-[10px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest rounded-xl text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm transition-all whitespace-nowrap"
             >
-              <Printer className="h-4 w-4 mr-2" />
-              Print
+              <Printer className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" />
+              <span>Print</span>
             </button>
             <button
               onClick={handleDownloadPdf}
               disabled={isGeneratingPdf}
-              className="flex-1 sm:flex-none flex items-center justify-center px-4 py-2 border border-slate-300 dark:border-slate-600 text-xs font-black uppercase tracking-widest rounded-xl text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm disabled:opacity-50 transition-all"
+              className="flex items-center justify-center px-2 sm:px-4 py-1.5 sm:py-2 border border-slate-300 dark:border-slate-600 text-[10px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest rounded-xl text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm disabled:opacity-50 transition-all whitespace-nowrap"
             >
-              {isGeneratingPdf ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
-              PDF Statement
+              {isGeneratingPdf ? <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5 animate-spin" /> : <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" />}
+              <span className="hidden sm:inline">PDF Statement</span>
+              <span className="sm:hidden">PDF</span>
             </button>
             <button
               onClick={() => {
@@ -608,28 +609,29 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
 
                 exportToCSV(`accounting_master_report_${timeRange}_${new Date().toISOString().split('T')[0]}.csv`, rows);
               }}
-              className="flex-1 sm:flex-none flex items-center justify-center px-4 py-2 border border-slate-300 dark:border-slate-600 text-xs font-black uppercase tracking-widest rounded-xl text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm transition-all"
+              className="flex items-center justify-center px-2 sm:px-4 py-1.5 sm:py-2 border border-slate-300 dark:border-slate-600 text-[10px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest rounded-xl text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm transition-all whitespace-nowrap"
             >
-              <Download className="h-4 w-4 mr-2" />
-              CSV Excel
+              <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" />
+              <span className="hidden sm:inline">CSV Excel</span>
+              <span className="sm:hidden">CSV</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* CFO Tab Navigation Row */}
-      <div className="flex border-b border-slate-200 dark:border-slate-700 mb-6 bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded-xl gap-2 overflow-x-auto print:hidden">
+      <div className="flex border-b border-slate-200 dark:border-slate-700 mb-3 sm:mb-6 bg-slate-50 dark:bg-slate-900/50 p-1 sm:p-1.5 rounded-xl gap-1 sm:gap-2 overflow-x-auto no-scrollbar print:hidden">
         {tabList.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-4 py-3 rounded-lg text-xs font-black uppercase tracking-wider transition-all duration-300 whitespace-nowrap ${
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all duration-300 whitespace-nowrap shrink-0 ${
               activeTab === tab.id
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 scale-102'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
-            <tab.icon className="w-4 h-4" />
+            <tab.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>{tab.name}</span>
           </button>
         ))}
@@ -655,19 +657,19 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
             TAB 1: EXECUTIVE BRIEFING & CORE ACCOUNTING RATIOS
             ======================================================= */}
         {activeTab === 'executive' && (
-          <div className="space-y-6 animate-fade-in">
+          <div className="space-y-4 sm:space-y-6 animate-fade-in">
             {/* Visual KPI Board */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 transition hover:shadow-md border-l-4 border-l-blue-500">
-                <div className="flex justify-between items-start">
+              <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-6 rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 transition hover:shadow-md border-l-4 border-l-blue-500">
+                <div className="flex justify-between items-start gap-2">
                   <div>
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-slate-500 dark:text-slate-400 block mb-1">Gross Revenue</span>
-                    <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
+                    <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-widest text-slate-500 dark:text-slate-400 block mb-0.5 sm:mb-1">Gross Revenue</span>
+                    <h3 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
                       {currencySymbol}{metrics.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </h3>
                   </div>
-                  <div className="p-2.5 bg-blue-50 dark:bg-blue-900/30 rounded-xl"><DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" /></div>
+                  <div className="p-2 sm:p-2.5 bg-blue-50 dark:bg-blue-900/30 rounded-xl shrink-0"><DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" /></div>
                 </div>
                 <div className="mt-2.5 flex items-center justify-between text-xs border-t border-slate-100 dark:border-slate-700/50 pt-2 text-slate-400">
                   <span>Gross Margin</span>
@@ -675,15 +677,15 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 transition hover:shadow-md border-l-4 border-l-purple-500">
-                <div className="flex justify-between items-start">
+              <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-6 rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 transition hover:shadow-md border-l-4 border-l-purple-500">
+                <div className="flex justify-between items-start gap-2">
                   <div>
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-slate-500 dark:text-slate-400 block mb-1">Operating Expenses (OpEx)</span>
-                    <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
+                    <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-widest text-slate-500 dark:text-slate-400 block mb-0.5 sm:mb-1">Operating Expenses (OpEx)</span>
+                    <h3 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
                       {currencySymbol}{metrics.totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </h3>
                   </div>
-                  <div className="p-2.5 bg-purple-50 dark:bg-purple-900/30 rounded-xl"><Wallet className="w-5 h-5 text-purple-600 dark:text-purple-400" /></div>
+                  <div className="p-2 sm:p-2.5 bg-purple-50 dark:bg-purple-900/30 rounded-xl shrink-0"><Wallet className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 dark:text-purple-400" /></div>
                 </div>
                 <div className="mt-2.5 flex items-center justify-between text-xs border-t border-slate-100 dark:border-slate-700/50 pt-2 text-slate-400">
                   <span>Discounts Absorbed</span>
@@ -691,19 +693,19 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 transition hover:shadow-md border-l-4 border-l-emerald-500">
-                <div className="flex justify-between items-start">
+              <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-6 rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 transition hover:shadow-md border-l-4 border-l-emerald-500">
+                <div className="flex justify-between items-start gap-2">
                   <div>
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-slate-500 dark:text-slate-400 block mb-1">Real Net profit (After Taxes)</span>
-                    <h3 className={`text-2xl font-black tracking-tight ${metrics.netIncome >= 0 ? 'text-green-600 dark:text-emerald-400' : 'text-red-500 rgb:text-red-400'}`}>
+                    <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-widest text-slate-500 dark:text-slate-400 block mb-0.5 sm:mb-1">Real Net profit (After Taxes)</span>
+                    <h3 className={`text-xl sm:text-2xl font-black tracking-tight ${metrics.netIncome >= 0 ? 'text-green-600 dark:text-emerald-400' : 'text-red-500 rgb:text-red-400'}`}>
                       {currencySymbol}{metrics.netIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </h3>
                   </div>
-                  <div className="p-2.5 bg-green-50 dark:bg-green-900/30 rounded-xl">
+                  <div className="p-2 sm:p-2.5 bg-green-50 dark:bg-green-900/30 rounded-xl shrink-0">
                     {metrics.netIncome >= 0 ? (
-                      <TrendingUp className="w-5 h-5 text-green-600 dark:text-emerald-400" />
+                      <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 dark:text-emerald-400" />
                     ) : (
-                      <TrendingDown className="w-5 h-5 text-rose-500" />
+                      <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-rose-500" />
                     )}
                   </div>
                 </div>
@@ -713,15 +715,15 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 transition hover:shadow-md border-l-4 border-l-indigo-500">
-                <div className="flex justify-between items-start">
+              <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-6 rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 transition hover:shadow-md border-l-4 border-l-indigo-500">
+                <div className="flex justify-between items-start gap-2">
                   <div>
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-slate-500 dark:text-slate-400 block mb-1">Liquid Inventory Assets</span>
-                    <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
+                    <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-widest text-slate-500 dark:text-slate-400 block mb-0.5 sm:mb-1">Liquid Inventory Assets</span>
+                    <h3 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
                       {currencySymbol}{metrics.inventoryValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </h3>
                   </div>
-                  <div className="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl"><Package className="w-5 h-5 text-indigo-600 dark:text-indigo-400" /></div>
+                  <div className="p-2 sm:p-2.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl shrink-0"><Package className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400" /></div>
                 </div>
                 <div className="mt-2.5 flex items-center justify-between text-xs border-t border-slate-100 dark:border-slate-700/50 pt-2 text-slate-400">
                   <span>Gross Stock Sticker Value</span>
@@ -732,9 +734,9 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
             </div>
 
             {/* DuPont Health Ratios Block */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6">
               
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
+              <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-3">
                     <Scale className="w-5 h-5 text-indigo-500" />
@@ -786,44 +788,44 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
+              <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <RefreshCcw className="w-5 h-5 text-emerald-500" />
+                  <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                    <RefreshCcw className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />
                     <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-100">Asset velocity & turnover</h4>
                   </div>
-                  <p className="text-xs text-slate-400 mb-6 font-medium">Annualized pace of stock clearance relative to average capital lockups.</p>
+                  <p className="text-[11px] sm:text-xs text-slate-400 mb-4 sm:mb-6 font-medium">Annualized pace of stock clearance relative to average capital lockups.</p>
                   
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                  <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
+                    <div className="bg-slate-50 dark:bg-slate-900/50 p-2.5 sm:p-4 rounded-xl border border-slate-100 dark:border-slate-800">
                       <span className="text-[9px] font-black uppercase text-slate-400 block mb-0.5">Inventory Turnover</span>
-                      <span className="text-xl font-bold font-mono text-slate-800 dark:text-slate-200">
+                      <span className="text-lg sm:text-xl font-bold font-mono text-slate-800 dark:text-slate-200">
                         {metrics.inventoryTurnover > 0 ? `${metrics.inventoryTurnover.toFixed(2)}x` : 'N/A'}
                       </span>
                     </div>
-                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <div className="bg-slate-50 dark:bg-slate-900/50 p-2.5 sm:p-4 rounded-xl border border-slate-100 dark:border-slate-800">
                       <span className="text-[9px] font-black uppercase text-slate-400 block mb-0.5">DSI (Shelf Days)</span>
-                      <span className="text-xl font-bold font-mono text-slate-800 dark:text-slate-200">
+                      <span className="text-lg sm:text-xl font-bold font-mono text-slate-800 dark:text-slate-200">
                         {metrics.dsi > 0 ? `${Math.round(metrics.dsi)} Days` : 'N/A'}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-4 text-xs text-slate-400 italic">
+                <div className="mt-3 sm:mt-4 text-[11px] sm:text-xs text-slate-400 italic">
                   {metrics.inventoryTurnover >= 1.5 
                     ? '⚡ Capital circulates swiftly, mitigating risk of physical asset decay.' 
                     : '⏳ Capital circulation is sluggish; recommend liquidation discounts.'}
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
+              <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Calculator className="w-5 h-5 text-purple-500" />
+                  <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                    <Calculator className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500" />
                     <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-100">Revenues breakeven tracker</h4>
                   </div>
-                  <p className="text-xs text-slate-400 mb-4 font-medium">Revenues required in order to make zero operating loss after factoring product costs and overhead.</p>
+                  <p className="text-[11px] sm:text-xs text-slate-400 mb-3 sm:mb-4 font-medium">Revenues required in order to make zero operating loss after factoring product costs and overhead.</p>
                   
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs font-bold">
@@ -835,14 +837,14 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
                       <span className="text-indigo-600 dark:text-indigo-400">{currencySymbol}{metrics.totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                     </div>
                     
-                    <div className="w-full bg-slate-100 dark:bg-slate-700 h-3 rounded-full overflow-hidden mt-2 relative">
+                    <div className="w-full bg-slate-100 dark:bg-slate-700 h-2.5 sm:h-3 rounded-full overflow-hidden mt-2 relative">
                       <div className="bg-purple-500 h-full rounded-full transition-all duration-300" 
                         style={{ width: `${Math.min(100, (metrics.totalRevenue / (metrics.breakevenRevenue || 1)) * 100)}%` }} />
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/50">
+                <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-slate-100 dark:border-slate-700/50">
                   {metrics.totalRevenue >= metrics.breakevenRevenue ? (
                     <span className="text-[10px] text-green-700 dark:text-emerald-400 bg-green-500/10 px-2 py-1 rounded font-black flex items-center gap-1">
                       🎉 BREAKEVEN SURPASS VALUE GENERATED
@@ -858,16 +860,16 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
             </div>
 
             {/* Financial Performance Timeline & P&L Allocation Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6">
               
-              <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700">
-                <div className="flex justify-between items-center mb-6">
+              <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-3.5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <div className="flex justify-between items-center mb-4 sm:mb-6">
                   <div>
-                    <h4 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Revenues & Cash Income trend</h4>
-                    <span className="text-xs text-slate-400">Daily gross revenue receipts versus real net operating surpluses.</span>
+                    <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Revenues & Cash Income trend</h4>
+                    <span className="text-[10px] sm:text-xs text-slate-400">Daily gross revenue receipts versus real net operating surpluses.</span>
                   </div>
                 </div>
-                <div className="h-80">
+                <div className="h-60 sm:h-80">
                   {chartData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={chartData}>
@@ -888,8 +890,8 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
                           formatter={(value: number) => [`${currencySymbol}${value.toLocaleString()}`, '']}
                           labelFormatter={(label) => new Date(label).toLocaleDateString()}
                         />
-                        <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '12px' }} />
-                        <Bar dataKey="revenue" name="Sales Revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={24} />
+                        <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '11px' }} />
+                        <Bar dataKey="revenue" name="Sales Revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} />
                         <Area type="monotone" dataKey="expenses" name="OpEx bills" fill="#f87171" fillOpacity={0.15} stroke="#ef4444" strokeWidth={1} />
                         <Line type="monotone" dataKey="netIncome" name="Net Profit" stroke="#10b981" strokeWidth={3} dot={true} />
                       </ComposedChart>
@@ -903,22 +905,22 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700">
-                <h4 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-2">Corporate ledger overview</h4>
-                <span className="text-xs text-slate-400 block mb-6">Aggregate breakdown of gross intake, product costs, and operating overheads.</span>
+              <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-1 sm:mb-2">Corporate ledger overview</h4>
+                <span className="text-[10px] sm:text-xs text-slate-400 block mb-4 sm:mb-6">Aggregate breakdown of gross intake, product costs, and operating overheads.</span>
                 
-                <div className="h-64">
+                <div className="h-52 sm:h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={profitAndLossChartData} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                    <BarChart data={profitAndLossChartData} layout="vertical" margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                       <XAxis type="number" fontSize={10} tickLine={false} axisLine={false} />
-                      <YAxis dataKey="name" type="category" width={85} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                      <YAxis dataKey="name" type="category" width={75} tick={{ fontSize: 9, fontWeight: 'bold' }} />
                       <Tooltip 
                         cursor={{ fill: 'transparent' }}
                         formatter={(value: number) => [`${currencySymbol}${value.toLocaleString()}`, 'Amount']}
                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', background: '#1e293b', color: '#fff' }}
                       />
-                      <Bar dataKey="amount" radius={[0, 6, 6, 0]} barSize={20}>
+                      <Bar dataKey="amount" radius={[0, 6, 6, 0]} barSize={18}>
                         {profitAndLossChartData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.fill} />
                         ))}
@@ -931,25 +933,25 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
             </div>
 
             {/* Asset Distribution Snapshot */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6">
               
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700">
-                <div className="flex items-center justify-between mb-4">
+              <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
                   <div>
-                    <h4 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Asset Distribution (Snapshot)</h4>
-                    <span className="text-xs text-slate-400">Total physical inventory investment vs current liquid period earnings.</span>
+                    <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Asset Distribution (Snapshot)</h4>
+                    <span className="text-[10px] sm:text-xs text-slate-400">Total physical inventory investment vs current liquid period earnings.</span>
                   </div>
                 </div>
-                <div className="h-64 flex flex-col sm:flex-row items-center justify-center">
-                  <div className="flex-1 w-full h-full min-h-[200px]">
+                <div className="h-56 sm:h-64 flex flex-col sm:flex-row items-center justify-center">
+                  <div className="flex-1 w-full h-full min-h-[180px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
                           data={assetCompositionData}
                           cx="50%"
                           cy="50%"
-                          innerRadius={50}
-                          outerRadius={80}
+                          innerRadius={40}
+                          outerRadius={70}
                           paddingAngle={3}
                           dataKey="value"
                         >
@@ -958,7 +960,7 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
                           ))}
                         </Pie>
                         <Tooltip formatter={(value: number) => `${currencySymbol}${value.toLocaleString()}`} />
-                        <Legend verticalAlign="middle" align="right" layout="vertical" iconType="circle" wrapperStyle={{ fontSize: '11px', paddingLeft: '10px' }} />
+                        <Legend verticalAlign="middle" align="right" layout="vertical" iconType="circle" wrapperStyle={{ fontSize: '10px', paddingLeft: '5px' }} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
@@ -966,11 +968,11 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
               </div>
 
               {/* Top Selling Products Table */}
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700">
-                <div className="flex justify-between items-center mb-4">
+              <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <div className="flex justify-between items-center mb-3 sm:mb-4">
                   <div>
-                    <h4 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Primary Product Revenue Drivers</h4>
-                    <span className="text-xs text-slate-400">Top 5 inventory stock categories by billing volume.</span>
+                    <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Primary Product Revenue Drivers</h4>
+                    <span className="text-[10px] sm:text-xs text-slate-400">Top 5 inventory stock categories by billing volume.</span>
                   </div>
                 </div>
                 <div className="overflow-x-auto">
@@ -1012,18 +1014,18 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
             TAB 2: FORMAL PROFIT & LOSS STATEMENT 
             ======================================================= */}
         {activeTab === 'pnl' && (
-          <div className="bg-white dark:bg-slate-800 p-6 sm:p-8 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm animate-fade-in max-w-4xl mx-auto">
+          <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-6 lg:p-8 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm animate-fade-in max-w-4xl mx-auto overflow-hidden">
             
             {/* Tax Settings Controls Panel (Print hidden) */}
-            <div className="mb-8 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 print:hidden flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="mb-6 sm:mb-8 p-3 sm:p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 print:hidden flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
               <div className="flex items-center gap-2">
-                <Calculator className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <Calculator className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
                 <div>
                   <span className="text-xs font-black uppercase text-slate-800 dark:text-slate-100 block">Baseline Tax Assessor</span>
-                  <p className="text-[11px] text-slate-400">Configure corporate tax estimations instantly on the statement sheet.</p>
+                  <p className="text-[10px] sm:text-[11px] text-slate-400">Configure corporate tax estimations instantly on the statement sheet.</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 w-full sm:w-auto">
                 <span className="text-xs font-extrabold text-slate-500">Tax Coefficient:</span>
                 <input 
                   type="range"
@@ -1034,23 +1036,23 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
                   onChange={(e) => setTaxRate(Number(e.target.value))}
                   className="w-24 sm:w-32 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                 />
-                <span className="text-xs font-black font-mono bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2.5 py-1 rounded-md border border-indigo-100 dark:border-indigo-850">
+                <span className="text-xs font-black font-mono bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md border border-indigo-100 dark:border-indigo-850">
                   {taxRate}%
                 </span>
               </div>
             </div>
 
             {/* Structured General Ledger Sheet */}
-            <div className="font-sans text-slate-850 dark:text-slate-100">
+            <div className="font-sans text-slate-850 dark:text-slate-100 overflow-x-auto">
               
-              <div className="border-b-2 border-slate-800 dark:border-slate-300 pb-3 mb-6 text-center">
-                <h3 className="text-xl font-black uppercase tracking-widest">Condensed Income Statement</h3>
-                <span className="text-xs font-bold text-slate-500 font-mono">
+              <div className="border-b-2 border-slate-800 dark:border-slate-300 pb-3 mb-4 sm:mb-6 text-center">
+                <h3 className="text-lg sm:text-xl font-black uppercase tracking-widest">Condensed Income Statement</h3>
+                <span className="text-[10px] sm:text-xs font-bold text-slate-500 font-mono">
                   Scale: {timeRange === 'all' ? 'Primary Inception' : `Last ${timeRange.replace('d', ' Days').replace('1y', 'Yearly Segment')}`} | Unaudited
                 </span>
               </div>
 
-              <table className="w-full text-xs font-mono border-collapse">
+              <table className="w-full text-[11px] sm:text-xs font-mono border-collapse min-w-[320px]">
                 <tbody>
                   
                   {/* REVENUE LINES */}
@@ -1296,10 +1298,10 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
             </div>
 
             {/* Itemized general expenses table */}
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+            <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
               <h4 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 mb-4">Itemized Operating disbursements ledger</h4>
               <div className="overflow-x-auto max-h-[400px] overflow-y-auto custom-scrollbar">
-                <table className="w-full text-xs text-left border-collapse">
+                <table className="w-full text-xs text-left border-collapse min-w-[480px]">
                   <thead>
                     <tr className="border-b-2 border-slate-200 dark:border-slate-700 text-slate-400 font-bold uppercase tracking-wider sticky top-0 bg-white dark:bg-slate-800 z-10 pb-3">
                       <th className="pb-3 pl-2">Transaction Date</th>

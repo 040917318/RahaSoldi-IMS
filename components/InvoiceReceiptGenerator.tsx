@@ -17,6 +17,7 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
   
   // Shared State
   const [customerName, setCustomerName] = useState('');
+  const [documentDate, setDocumentDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [documentItems, setDocumentItems] = useState<{ description: string; quantity: number; price: number }[]>([]);
   const [newItemDesc, setNewItemDesc] = useState('');
   const [newItemQty, setNewItemQty] = useState(1);
@@ -42,6 +43,7 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
         const draft = JSON.parse(savedDraft);
         if (draft.mode) setMode(draft.mode);
         if (draft.customerName) setCustomerName(draft.customerName);
+        if (draft.documentDate) setDocumentDate(draft.documentDate);
         if (draft.documentItems) setDocumentItems(draft.documentItems);
         if (draft.discount !== undefined) setDiscount(draft.discount);
         if (draft.applyTax !== undefined) setApplyTax(draft.applyTax);
@@ -55,12 +57,13 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
     const draft = {
       mode,
       customerName,
+      documentDate,
       documentItems,
       discount,
       applyTax
     };
     localStorage.setItem('invoice_generator_draft', JSON.stringify(draft));
-  }, [mode, customerName, documentItems, discount, applyTax]);
+  }, [mode, customerName, documentDate, documentItems, discount, applyTax]);
 
   // Receipt Mode State
   const [searchTerm, setSearchTerm] = useState('');
@@ -85,6 +88,13 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
     setDiscount(0);
     setApplyTax(false);
     setCustomerName(sale.customerName || '');
+    if (sale.timestamp) {
+      try {
+        setDocumentDate(new Date(sale.timestamp).toISOString().split('T')[0]);
+      } catch (e) {
+        setDocumentDate(new Date().toISOString().split('T')[0]);
+      }
+    }
   };
 
   const handleAddItem = () => {
@@ -123,7 +133,11 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-      const fileName = `${mode === 'receipt' ? 'Receipt' : 'Invoice'}_${new Date().getTime()}.pdf`;
+      const docType = mode === 'receipt' ? 'Receipt' : 'Invoice';
+      const safeCustomerName = customerName.trim() 
+        ? customerName.trim().replace(/[/\\?%*:|"<>]/g, '').replace(/\s+/g, '_') 
+        : 'Customer';
+      const fileName = `${docType}_${safeCustomerName}.pdf`;
       pdf.save(fileName);
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -206,7 +220,11 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
       
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
       const pdfBlob = pdf.output('blob');
-      const fileName = `${mode === 'receipt' ? 'Receipt' : 'Invoice'}_${new Date().getTime()}.pdf`;
+      const docType = mode === 'receipt' ? 'Receipt' : 'Invoice';
+      const safeCustomerName = customerName.trim() 
+        ? customerName.trim().replace(/[/\\?%*:|"<>]/g, '').replace(/\s+/g, '_') 
+        : 'Customer';
+      const fileName = `${docType}_${safeCustomerName}.pdf`;
       const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -237,18 +255,18 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Controls (Hidden during print) */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 print:hidden">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex space-x-4">
+      <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 print:hidden">
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mb-4 sm:mb-6">
+          <div className="flex gap-2">
             <button
               onClick={() => setMode('receipt')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${mode === 'receipt' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200'}`}
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${mode === 'receipt' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200'}`}
             >
               Generate Receipt
             </button>
             <button
               onClick={() => setMode('invoice')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${mode === 'invoice' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200'}`}
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${mode === 'invoice' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200'}`}
             >
               Create Invoice
             </button>
@@ -257,6 +275,7 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
             onClick={() => {
               if (confirm('Clear all fields in this form?')) {
                 setCustomerName('');
+                setDocumentDate(new Date().toISOString().split('T')[0]);
                 setDocumentItems([]);
                 setDiscount(0);
                 setApplyTax(false);
@@ -264,13 +283,13 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
                 setSearchTerm('');
               }
             }}
-            className="text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            className="self-end sm:self-auto text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
           >
             Clear Form
           </button>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {mode === 'receipt' && (
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Search Past Sale (Optional)</label>
@@ -320,68 +339,82 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Customer Name / Details (Optional)</label>
-            <input
-              type="text"
-              className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-primary focus:border-primary bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-              placeholder="e.g. John Doe, Acme Corp..."
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Customer Name / Details (Optional)</label>
+              <input
+                type="text"
+                className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-primary focus:border-primary bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                placeholder="e.g. John Doe, Acme Corp..."
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Document Date (Calendar Select)</label>
+              <input
+                type="date"
+                className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-primary focus:border-primary bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                value={documentDate}
+                onChange={(e) => setDocumentDate(e.target.value)}
+              />
+            </div>
           </div>
           
-          <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-slate-50 dark:bg-slate-900">
-            <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-3">Add Item</h4>
-            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+          <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-3 sm:p-4 bg-slate-50 dark:bg-slate-900">
+            <h4 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 mb-3">Add Item</h4>
+            <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 mb-4">
               <input
                 type="text"
                 placeholder="Description"
-                className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-xs sm:text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                 value={newItemDesc}
                 onChange={(e) => setNewItemDesc(e.target.value)}
               />
-              <input
-                type="number"
-                placeholder="Qty"
-                min="1"
-                className="w-full sm:w-24 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-                value={newItemQty}
-                onChange={(e) => setNewItemQty(Number(e.target.value))}
-              />
-              <input
-                type="number"
-                placeholder="Price"
-                min="0"
-                step="0.01"
-                className="w-full sm:w-32 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-                value={newItemPrice}
-                onChange={(e) => setNewItemPrice(Number(e.target.value))}
-              />
+              <div className="flex gap-2 w-full sm:w-auto">
+                <input
+                  type="number"
+                  placeholder="Qty"
+                  min="1"
+                  className="w-1/2 sm:w-24 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-xs sm:text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                  value={newItemQty}
+                  onChange={(e) => setNewItemQty(Number(e.target.value))}
+                />
+                <input
+                  type="number"
+                  placeholder="Price"
+                  min="0"
+                  step="0.01"
+                  className="w-1/2 sm:w-32 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-xs sm:text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                  value={newItemPrice}
+                  onChange={(e) => setNewItemPrice(Number(e.target.value))}
+                />
+              </div>
               <button
                 onClick={handleAddItem}
                 disabled={!newItemDesc}
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-800 transition-colors disabled:opacity-50 flex items-center justify-center"
+                className="w-full sm:w-auto px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-800 transition-colors disabled:opacity-50 flex items-center justify-center font-medium text-xs sm:text-sm"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-4 h-4 mr-1 sm:mr-0" />
+                <span className="sm:hidden">Add Item</span>
               </button>
             </div>
 
             {/* Discount and Tax Controls */}
-            <div className="flex flex-col sm:flex-row gap-4 border-t border-slate-200 dark:border-slate-700 pt-4">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-6 border-t border-slate-200 dark:border-slate-700 pt-3">
               <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Discount ({currencySymbol}):</label>
+                <label className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200">Discount ({currencySymbol}):</label>
                 <input
                   type="number"
                   min="0"
                   step="0.01"
-                  className="w-24 px-2 py-1 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                  className="w-20 sm:w-24 px-2 py-1 border border-slate-300 dark:border-slate-600 rounded-lg text-xs sm:text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                   value={discount}
                   onChange={(e) => setDiscount(Number(e.target.value))}
                 />
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-200 flex items-center cursor-pointer">
+                <label className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200 flex items-center cursor-pointer">
                   <input
                     type="checkbox"
                     className="mr-2 rounded border-slate-300 text-primary focus:ring-primary"
@@ -397,17 +430,17 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
       </div>
 
       {/* Preview Area */}
-      <div className="bg-white dark:bg-slate-800 p-4 sm:p-8 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 print:hidden">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center">
-            <FileText className="w-5 h-5 mr-2 text-primary" />
+      <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-8 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3 print:hidden">
+          <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center">
+            <FileText className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" />
             {mode === 'receipt' ? 'Receipt Preview' : 'Invoice Preview'}
           </h3>
-          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <button
               onClick={handleWhatsAppShare}
               disabled={isGeneratingPdf || documentItems.length === 0}
-              className="w-full sm:w-auto px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center justify-center"
+              className="w-full sm:w-auto px-3.5 py-2 text-xs sm:text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center justify-center font-medium"
             >
               {isGeneratingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <MessageCircle className="w-4 h-4 mr-2" />}
               Share to WhatsApp
@@ -415,7 +448,7 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
             <button
               onClick={handlePrint}
               disabled={documentItems.length === 0}
-              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center"
+              className="w-full sm:w-auto px-3.5 py-2 text-xs sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center font-medium"
             >
               <Printer className="w-4 h-4 mr-2" />
               Print Document
@@ -423,61 +456,63 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
           </div>
         </div>
 
-        {/* Printable Document */}
-        <div className="overflow-x-auto">
-          <div ref={printRef} className="print:block min-w-[600px] max-w-2xl mx-auto bg-white text-black p-4 sm:p-8 border border-slate-200 rounded-lg print:border-0 print:p-0">
-          <div className="text-center mb-8 border-b pb-4 flex flex-col items-center">
-            <img src={logoUrl} alt="Raha Soldi Ent. Logo" className="mb-1" style={{ width: 'auto', height: '80px', objectFit: 'contain' }} crossOrigin="anonymous" />
-            <p className="text-slate-600 text-sm font-medium mt-1">General Trading & Supplies</p>
-            <p className="text-slate-600 text-sm">Loc: Adabraka Adjacent NDC HQ</p>
-            <p className="text-slate-600 text-sm">Tel: 0272326845/ 0277317589/ 0208338431</p>
-            <h2 className="text-2xl font-bold mt-4 text-slate-800 uppercase tracking-wider">
+        {/* Printable Document Canvas */}
+        <div className="w-full overflow-x-auto">
+          <div ref={printRef} className="print:block w-full max-w-2xl mx-auto bg-white text-black p-3.5 sm:p-8 border border-slate-200 rounded-lg print:border-0 print:p-0 shadow-sm min-w-0">
+          <div className="text-center mb-6 sm:mb-8 border-b pb-4 flex flex-col items-center">
+            <img src={logoUrl} alt="Raha Soldi Ent. Logo" className="mb-1" style={{ width: 'auto', maxHeight: '70px', objectFit: 'contain' }} crossOrigin="anonymous" />
+            <p className="text-slate-600 text-xs sm:text-sm font-medium mt-1">General Trading & Supplies</p>
+            <p className="text-slate-600 text-xs sm:text-sm">Loc: Adabraka Adjacent NDC HQ</p>
+            <p className="text-slate-600 text-xs sm:text-sm">Tel: 0272326845/ 0277317589/ 0208338431</p>
+            <h2 className="text-lg sm:text-2xl font-bold mt-3 sm:mt-4 text-slate-800 uppercase tracking-wider">
               {mode === 'receipt' ? 'Sales Receipt' : 'Invoice'}
             </h2>
           </div>
 
           {documentItems.length > 0 ? (
             <>
-              <div className="flex justify-between mb-6 text-sm">
+              <div className="flex justify-between items-start mb-4 sm:mb-6 text-xs sm:text-sm gap-2">
                 <div>
                   <p className="text-slate-500 font-medium">{mode === 'invoice' ? 'Bill To:' : 'Customer:'}</p>
-                  <p className="font-bold text-base">{customerName || 'Walk-in Customer'}</p>
+                  <p className="font-bold text-sm sm:text-base">{customerName || 'Walk-in Customer'}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-slate-500 font-medium">Date:</p>
-                  <p>{new Date().toLocaleDateString()}</p>
-                  <p className="text-slate-500 font-medium mt-2">{mode === 'invoice' ? 'Invoice No:' : 'Receipt No:'}</p>
-                  <p className="font-mono">{selectedSaleId ? selectedSaleId.slice(-8).toUpperCase() : `${mode === 'invoice' ? 'INV' : 'REC'}-${Math.floor(Math.random() * 1000000)}`}</p>
+                  <p className="font-semibold">{documentDate ? new Date(documentDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString()}</p>
+                  <p className="text-slate-500 font-medium mt-1.5">{mode === 'invoice' ? 'Invoice No:' : 'Receipt No:'}</p>
+                  <p className="font-mono text-xs sm:text-sm">{selectedSaleId ? selectedSaleId.slice(-8).toUpperCase() : `${mode === 'invoice' ? 'INV' : 'REC'}-${Math.floor(Math.random() * 1000000)}`}</p>
                 </div>
               </div>
-              <table className="w-full mb-6 text-sm">
-                <thead>
-                  <tr className="border-b-2 border-slate-800">
-                    <th className="text-left py-2 font-bold">Description</th>
-                    <th className="text-center py-2 font-bold">Qty</th>
-                    <th className="text-right py-2 font-bold">Unit Price</th>
-                    <th className="text-right py-2 font-bold">Amount</th>
-                    <th className="print:hidden w-8" data-html2canvas-ignore="true"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {documentItems.map((item, idx) => (
-                    <tr key={idx} className="border-b border-slate-200">
-                      <td className="py-2">{item.description}</td>
-                      <td className="text-center py-2">{item.quantity}</td>
-                      <td className="text-right py-2">{currencySymbol}{item.price.toFixed(2)}</td>
-                      <td className="text-right py-2">{currencySymbol}{(item.quantity * item.price).toFixed(2)}</td>
-                      <td className="print:hidden text-right" data-html2canvas-ignore="true">
-                        <button onClick={() => handleRemoveItem(idx)} className="text-red-500 hover:text-red-700 p-1">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full mb-4 sm:mb-6 text-xs sm:text-sm">
+                  <thead>
+                    <tr className="border-b-2 border-slate-800">
+                      <th className="text-left py-1.5 sm:py-2 font-bold">Description</th>
+                      <th className="text-center py-1.5 sm:py-2 font-bold px-1">Qty</th>
+                      <th className="text-right py-1.5 sm:py-2 font-bold px-1">Unit Price</th>
+                      <th className="text-right py-1.5 sm:py-2 font-bold">Amount</th>
+                      <th className="print:hidden w-6" data-html2canvas-ignore="true"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {documentItems.map((item, idx) => (
+                      <tr key={idx} className="border-b border-slate-200">
+                        <td className="py-1.5 sm:py-2 break-words max-w-[120px] sm:max-w-none">{item.description}</td>
+                        <td className="text-center py-1.5 sm:py-2 px-1">{item.quantity}</td>
+                        <td className="text-right py-1.5 sm:py-2 px-1">{currencySymbol}{item.price.toFixed(2)}</td>
+                        <td className="text-right py-1.5 sm:py-2">{currencySymbol}{(item.quantity * item.price).toFixed(2)}</td>
+                        <td className="print:hidden text-right pl-1" data-html2canvas-ignore="true">
+                          <button onClick={() => handleRemoveItem(idx)} className="text-red-500 hover:text-red-700 p-1">
+                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               <div className="flex justify-end">
-                <div className="w-64 space-y-2 text-sm">
+                <div className="w-full sm:w-64 space-y-1.5 sm:space-y-2 text-xs sm:text-sm">
                   <div className="flex justify-between py-1">
                     <span className="text-slate-600">Subtotal:</span>
                     <span>{currencySymbol}{subtotal.toFixed(2)}</span>
@@ -494,7 +529,7 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
                       <span>{currencySymbol}{taxAmount.toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between py-2 font-bold text-lg border-t-2 border-slate-800 mt-2">
+                  <div className="flex justify-between py-1.5 sm:py-2 font-bold text-base sm:text-lg border-t-2 border-slate-800 mt-2">
                     <span>Total:</span>
                     <span>{currencySymbol}{grandTotal.toFixed(2)}</span>
                   </div>
@@ -502,12 +537,12 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
               </div>
             </>
           ) : (
-            <div className="text-center py-12 text-slate-400">
+            <div className="text-center py-8 sm:py-12 text-slate-400 text-xs sm:text-sm">
               Add items to preview {mode === 'receipt' ? 'receipt' : 'invoice'}
             </div>
           )}
 
-          <div className="mt-12 text-center text-sm text-slate-500 border-t pt-4">
+          <div className="mt-8 sm:mt-12 text-center text-xs sm:text-sm text-slate-500 border-t pt-3 sm:pt-4">
             <p>Thank you for your business!</p>
           </div>
         </div>

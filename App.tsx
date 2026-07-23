@@ -1193,11 +1193,11 @@ const App: React.FC = () => {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-72 p-4 lg:p-8 pt-20 lg:pt-8 transition-all duration-300">
+      <main className="flex-1 lg:ml-72 p-3 sm:p-6 lg:p-8 pt-16 sm:pt-20 lg:pt-8 pb-24 lg:pb-8 transition-all duration-300">
         <div className="max-w-7xl mx-auto">
-          <header className="mb-8 flex justify-between items-end">
+          <header className="mb-6 lg:mb-8 flex justify-between items-end">
             <div>
-              <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100">
                 {activeView === 'dashboard' && 'Business Overview'}
                 {activeView === 'inventory' && 'Inventory Management'}
                 {activeView === 'pos' && 'New Sale'}
@@ -1207,7 +1207,7 @@ const App: React.FC = () => {
                 {activeView === 'insights' && 'Business Intelligence'}
                 {activeView === 'invoices' && 'Invoices & Receipts'}
               </h2>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+              <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-0.5 sm:mt-1">
                 {activeView === 'dashboard' && 'Welcome back.'}
                 {activeView === 'inventory' && 'Manage your stock and pricing.'}
                 {activeView === 'pos' && 'Process transactions quickly.'}
@@ -1226,7 +1226,7 @@ const App: React.FC = () => {
                >
                  {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                </button>
-               <div className="text-sm font-bold text-slate-700 dark:text-slate-200 dark:text-slate-300">{new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+               <div className="text-sm font-bold text-slate-700 dark:text-slate-200">{new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
             </div>
           </header>
 
@@ -1262,6 +1262,48 @@ const App: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* Mobile Quick Bottom Navigation Bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800/80 text-slate-300 z-30 px-2 py-1.5 flex justify-around items-center shadow-2xl">
+        <button 
+          onClick={() => { setActiveView('dashboard'); setIsMobileMenuOpen(false); }}
+          className={`flex flex-col items-center py-1 px-2.5 rounded-xl text-[10px] font-bold transition-all ${activeView === 'dashboard' ? 'text-indigo-400 bg-indigo-500/15' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <LayoutDashboard className="w-5 h-5 mb-0.5" />
+          <span>Overview</span>
+        </button>
+        <button 
+          onClick={() => { setActiveView('pos'); setIsMobileMenuOpen(false); }}
+          className={`flex flex-col items-center py-1 px-2.5 rounded-xl text-[10px] font-bold transition-all ${activeView === 'pos' ? 'text-indigo-400 bg-indigo-500/15' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <ShoppingCart className="w-5 h-5 mb-0.5" />
+          <span>POS</span>
+        </button>
+        <button 
+          onClick={() => { setActiveView('pending'); setIsMobileMenuOpen(false); }}
+          className={`flex flex-col items-center py-1 px-2.5 rounded-xl text-[10px] font-bold transition-all relative ${activeView === 'pending' ? 'text-indigo-400 bg-indigo-500/15' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <Clock className="w-5 h-5 mb-0.5" />
+          <span>Pending</span>
+          {pendingSales.length > 0 && (
+            <span className="absolute top-1 right-2 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+          )}
+        </button>
+        <button 
+          onClick={() => { setActiveView('inventory'); setIsMobileMenuOpen(false); }}
+          className={`flex flex-col items-center py-1 px-2.5 rounded-xl text-[10px] font-bold transition-all ${activeView === 'inventory' ? 'text-indigo-400 bg-indigo-500/15' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <Package className="w-5 h-5 mb-0.5" />
+          <span>Stock</span>
+        </button>
+        <button 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className={`flex flex-col items-center py-1 px-2.5 rounded-xl text-[10px] font-bold transition-all ${isMobileMenuOpen ? 'text-indigo-400 bg-indigo-500/15' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <Menu className="w-5 h-5 mb-0.5" />
+          <span>Menu</span>
+        </button>
+      </div>
     </div>
   );
 };

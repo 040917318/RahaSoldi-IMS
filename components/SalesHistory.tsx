@@ -356,9 +356,9 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
 
       {/* Detail Modal */}
       {selectedSale && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-start justify-center p-4 backdrop-blur-sm sm:pt-10 md:pt-20">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-fade-in relative mt-4 md:mt-0">
-                <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center bg-slate-50 dark:bg-slate-900">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-fade-in relative my-auto max-h-[90vh] flex flex-col">
+                <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center bg-slate-50 dark:bg-slate-900 shrink-0">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center">
                         <FileText className="w-5 h-5 mr-2 text-primary" />
                         {selectedSale.isPending ? 'Pending Sale Details' : 'Sale Details'}
@@ -375,7 +375,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
                     </div>
                 </div>
                 
-                <div className="p-6">
+                <div className="p-5 overflow-y-auto flex-1">
                     {/* First View Summary Section */}
                     <div className="grid grid-cols-2 gap-4 mb-6">
                         <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-4 rounded-xl text-white shadow-lg shadow-indigo-500/20 relative overflow-hidden group">
