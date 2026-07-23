@@ -38,6 +38,7 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [qtyInput, setQtyInput] = useState<number>(1);
+  const [isAddToCartModalOpen, setIsAddToCartModalOpen] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   
   // Defer Modal State
@@ -124,9 +125,10 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
     }
     
     // Reset selection logic
+    setIsAddToCartModalOpen(false);
     setSelectedProductId(null);
     setQtyInput(1);
-    setSearchTerm('');
+    setSuccessMsg(`Added ${qtyInput}x ${selectedProduct.name} to cart`);
   };
 
   const removeFromCart = (index: number) => {
@@ -232,7 +234,11 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                     whileHover={{ y: -4, boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1)" }}
                     whileTap={{ scale: 0.98 }}
                     key={item.id}
-                    onClick={() => { setSelectedProductId(item.id); setQtyInput(1); }}
+                    onClick={() => { 
+                      setSelectedProductId(item.id); 
+                      setQtyInput(1); 
+                      setIsAddToCartModalOpen(true);
+                    }}
                     className={`cursor-pointer p-3 sm:p-5 rounded-2xl sm:rounded-[2rem] border transition-all relative overflow-hidden group ${
                       selectedProductId === item.id 
                         ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/20' 
@@ -578,6 +584,186 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                   className="flex-2 py-3.5 sm:py-5 bg-indigo-600 text-white font-black rounded-xl sm:rounded-3xl shadow-2xl shadow-indigo-600/20 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all uppercase tracking-widest text-xs sm:text-sm"
                 >
                   Finalize Record
+                </motion.button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Add To Cart Pop Up Modal */}
+      <AnimatePresence>
+        {isAddToCartModalOpen && selectedProduct && (
+          <div className="fixed inset-0 z-[60] flex items-start justify-center p-3 sm:p-4 pt-6 sm:pt-12 overflow-y-auto">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setIsAddToCartModalOpen(false);
+                setSelectedProductId(null);
+              }}
+              className="fixed inset-0 bg-slate-950/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              className="bg-white dark:bg-slate-900 rounded-3xl shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)] w-full max-w-md border border-slate-200 dark:border-slate-800 overflow-hidden relative z-10 my-0 sm:my-2 max-h-[90vh] flex flex-col"
+            >
+              {/* Header */}
+              <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start bg-slate-50/50 dark:bg-slate-900/50">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-indigo-600/10 rounded-2xl text-indigo-600 dark:text-indigo-400">
+                    <Package className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500 block mb-0.5">
+                      Add To Order
+                    </span>
+                    <h3 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white leading-tight">
+                      {selectedProduct.name}
+                    </h3>
+                    <p className="text-xs text-slate-400 font-medium">{selectedProduct.category}</p>
+                  </div>
+                </div>
+                <motion.button 
+                  whileHover={{ rotate: 90 }}
+                  whileTap={{ scale: 0.8 }}
+                  onClick={() => {
+                    setIsAddToCartModalOpen(false);
+                    setSelectedProductId(null);
+                  }} 
+                  className="p-2 hover:bg-slate-200/50 dark:hover:bg-slate-800 rounded-xl transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-400" />
+                </motion.button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-5 sm:p-6 space-y-4 sm:space-y-5">
+                {/* Product Info Cards */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <span className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">Unit Price</span>
+                    <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">
+                      {currencySymbol}{selectedProduct.salesPrice.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <span className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">Stock Available</span>
+                    <span className={`text-lg font-black ${selectedProduct.quantity > selectedProduct.lowStockThreshold ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+                      {selectedProduct.quantity} units
+                    </span>
+                  </div>
+                </div>
+
+                {itemInCartTotal(cart, selectedProduct.id) > 0 && (
+                  <div className="bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-bold p-3 rounded-xl flex items-center justify-between">
+                    <span>In Cart Currently:</span>
+                    <span className="font-mono text-sm">{itemInCartTotal(cart, selectedProduct.id)} units</span>
+                  </div>
+                )}
+
+                {/* Quantity Selector */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="block text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Quantity to Add
+                    </label>
+                    <span className="text-[11px] text-slate-400">
+                      Max: {Math.max(0, selectedProduct.quantity - itemInCartTotal(cart, selectedProduct.id))}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center p-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                    <motion.button 
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setQtyInput(Math.max(1, qtyInput - 1))}
+                      className="p-3 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all"
+                    >
+                      <Minus className="w-5 h-5" />
+                    </motion.button>
+                    <input 
+                      type="number" 
+                      min="1"
+                      max={selectedProduct.quantity}
+                      className="w-full text-center font-black text-xl focus:outline-none bg-transparent text-slate-900 dark:text-slate-100"
+                      value={qtyInput}
+                      onChange={(e) => setQtyInput(parseInt(e.target.value) || 0)}
+                    />
+                    <motion.button 
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setQtyInput(Math.min(selectedProduct.quantity - itemInCartTotal(cart, selectedProduct.id), qtyInput + 1))}
+                      className="p-3 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </motion.button>
+                  </div>
+
+                  {/* Quick Preset Buttons */}
+                  <div className="flex gap-2 pt-1">
+                    {[1, 2, 5, 10].map((preset) => {
+                      const maxAvailable = selectedProduct.quantity - itemInCartTotal(cart, selectedProduct.id);
+                      const isDisabled = preset > maxAvailable;
+                      return (
+                        <button
+                          key={preset}
+                          type="button"
+                          disabled={isDisabled}
+                          onClick={() => setQtyInput(preset)}
+                          className={`flex-1 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                            qtyInput === preset
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                          } disabled:opacity-40 disabled:cursor-not-allowed`}
+                        >
+                          +{preset}
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => setQtyInput(Math.max(1, selectedProduct.quantity - itemInCartTotal(cart, selectedProduct.id)))}
+                      className="flex-1 py-1.5 rounded-xl text-xs font-bold border bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100"
+                    >
+                      Max
+                    </button>
+                  </div>
+                </div>
+
+                {/* Subtotal Calculation */}
+                <div className="bg-indigo-600/5 dark:bg-indigo-600/10 p-4 rounded-2xl border border-indigo-600/10 flex justify-between items-center">
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-indigo-500 tracking-wider block">Item Subtotal</span>
+                    <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
+                      {currencySymbol}{(qtyInput * selectedProduct.salesPrice).toFixed(2)}
+                    </span>
+                  </div>
+                  <ShoppingCart className="w-8 h-8 text-indigo-400/40" />
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="p-5 sm:p-6 bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddToCartModalOpen(false);
+                    setSelectedProductId(null);
+                  }}
+                  className="px-4 sm:px-5 py-3.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-2xl hover:bg-slate-200 text-xs uppercase tracking-wider transition-all"
+                >
+                  Cancel
+                </button>
+                <motion.button 
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={addToCart}
+                  disabled={qtyInput <= 0 || (itemInCartTotal(cart, selectedProduct.id) + qtyInput > selectedProduct.quantity)}
+                  className="flex-1 py-3.5 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-600/20 transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider text-xs sm:text-sm"
+                >
+                  <ShoppingCart className="w-4 h-4 mr-2" />
+                  Add To Cart
                 </motion.button>
               </div>
             </motion.div>
