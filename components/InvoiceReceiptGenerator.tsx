@@ -2,9 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SaleRecord, PendingSale } from '../types';
 import { FileText, Printer, Search, Plus, Trash2, MessageCircle, Loader2, X, ExternalLink, Download } from 'lucide-react';
 import logoUrl from '../logo.svg';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
-import { useReactToPrint } from 'react-to-print';
+import { exportElementToPdf } from '../utils/pdfGenerator';
 
 interface InvoiceReceiptGeneratorProps {
   sales: SaleRecord[];
@@ -120,25 +118,13 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
     if (!printRef.current) return;
     setIsGeneratingPdf(true);
     try {
-      const canvas = await html2canvas(printRef.current, { 
-        scale: 1.5, 
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff'
-      });
-      const imgData = canvas.toDataURL('image/jpeg', 0.75);
-      
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
       const docType = mode === 'receipt' ? 'Receipt' : 'Invoice';
       const safeCustomerName = customerName.trim() 
         ? customerName.trim().replace(/[/\\?%*:|"<>]/g, '').replace(/\s+/g, '_') 
         : 'Customer';
       const fileName = `${docType}_${safeCustomerName}.pdf`;
-      pdf.save(fileName);
+
+      await exportElementToPdf(printRef.current, { fileName });
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Could not generate PDF.');
@@ -206,25 +192,17 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
     if (!printRef.current) return;
     setIsGeneratingPdf(true);
     try {
-      const canvas = await html2canvas(printRef.current, { 
-        scale: 1.5, 
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff'
-      });
-      const imgData = canvas.toDataURL('image/jpeg', 0.75);
-      
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-      const pdfBlob = pdf.output('blob');
       const docType = mode === 'receipt' ? 'Receipt' : 'Invoice';
       const safeCustomerName = customerName.trim() 
         ? customerName.trim().replace(/[/\\?%*:|"<>]/g, '').replace(/\s+/g, '_') 
         : 'Customer';
       const fileName = `${docType}_${safeCustomerName}.pdf`;
+
+      const pdfBlob = (await exportElementToPdf(printRef.current, {
+        fileName,
+        returnBlob: true
+      })) as Blob;
+
       const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -234,7 +212,11 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
           files: [file]
         });
       } else {
-        pdf.save(fileName);
+        const url = URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
         alert('PDF downloaded! Please attach it in the WhatsApp window that opens.');
         window.open('https://wa.me/?text=Please+find+the+attached+document', '_blank');
       }

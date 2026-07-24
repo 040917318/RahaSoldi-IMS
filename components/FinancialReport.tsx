@@ -46,9 +46,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { exportToCSV } from '../utils';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
-import { useReactToPrint } from 'react-to-print';
+import { exportElementToPdf } from '../utils/pdfGenerator';
 
 interface FinancialReportProps {
   inventory: InventoryItem[];
@@ -169,29 +167,8 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
     if (!reportRef.current) return;
     setIsGeneratingPdf(true);
     try {
-      reportRef.current.classList.add('pdf-exporting');
-      
-      const canvas = await html2canvas(reportRef.current, { 
-        scale: 1.5,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff'
-      });
-      
-      reportRef.current.classList.remove('pdf-exporting');
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.75);
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-      
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-      pdf.save(`Financial_Performance_Statement_${timeRange}_${new Date().toISOString().split('T')[0]}.pdf`);
+      const fileName = `Financial_Performance_Statement_${timeRange}_${new Date().toISOString().split('T')[0]}.pdf`;
+      await exportElementToPdf(reportRef.current, { fileName });
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Failed to generate PDF. Please try again.');

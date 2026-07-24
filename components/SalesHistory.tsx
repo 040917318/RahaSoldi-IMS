@@ -453,7 +453,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
                     </div>
                 </div>
                 
-                <div className="bg-slate-50 dark:bg-slate-900 px-4 sm:px-6 py-3 flex justify-end border-t border-slate-100 dark:border-slate-800 shrink-0">
+                <div className="bg-slate-50 dark:bg-slate-900 px-4 sm:px-6 py-3 flex justify-end items-center border-t border-slate-100 dark:border-slate-800 shrink-0">
                     <button 
                         onClick={() => setSelectedSale(null)}
                         className="px-4 py-1.5 sm:py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs sm:text-sm font-bold shadow-sm transition-colors"
