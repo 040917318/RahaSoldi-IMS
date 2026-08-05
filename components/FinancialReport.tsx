@@ -47,6 +47,7 @@ import {
 } from 'lucide-react';
 import { exportToCSV } from '../utils';
 import { exportElementToPdf } from '../utils/pdfGenerator';
+import logoUrl from '../logo.svg';
 
 interface FinancialReportProps {
   inventory: InventoryItem[];
@@ -618,15 +619,24 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
       <div ref={reportRef} className="print:block bg-slate-50 dark:bg-slate-900 print:bg-white print:text-black space-y-6">
         
         {/* Formal PDF Report Header Brand */}
-        <div className="hidden print:block text-center border-b border-slate-200 pb-6 mb-6">
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight uppercase">Corporate Financial Report</h1>
-          <p className="text-slate-500 mt-2 text-sm">
-            Operational Period Segment: {timeRange === 'all' ? 'All System History' : `Last ${timeRange.replace('d', ' Days').replace('1y', '1 Year')}`}
-          </p>
-          <div className="flex justify-center gap-8 mt-3 text-xs text-slate-400 font-mono">
-            <span>Corporate Tax Baseline: {taxRate}%</span>
-            <span>Recorded Expenses count: {expenses.length} lines</span>
-            <span>Date Generated: {new Date().toLocaleDateString()}</span>
+        <div className="hidden print:block pb-6 mb-6 border-b border-slate-200">
+          <div className="flex justify-between items-start gap-6">
+            <div className="flex items-center gap-3">
+              <img src={logoUrl} alt="Raha Soldi Ent. Logo" className="h-14 w-auto object-contain" crossOrigin="anonymous" />
+              <div>
+                <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase leading-none">RAHA SOLDI ENTERPRISE</h1>
+                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1">Corporate Accounting & Financial Audit</p>
+                <p className="text-xs text-slate-600 mt-1">📍 Adabraka, Accra, Ghana | GA-102-4421 | Tel: 0272326845</p>
+              </div>
+            </div>
+
+            <div className="text-right shrink-0">
+              <div className="bg-slate-900 text-white px-4 py-2 rounded-lg inline-block font-black text-xs tracking-widest uppercase shadow-sm mb-2">
+                EXECUTIVE FINANCIAL STATEMENT
+              </div>
+              <p className="text-xs font-mono font-bold text-slate-800">Date Generated: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+              <p className="text-[11px] text-slate-500 font-mono mt-0.5">Segment: {timeRange === 'all' ? 'Full Historical Period' : `Last ${timeRange.replace('d', ' Days').replace('1y', '1 Year')}`}</p>
+            </div>
           </div>
         </div>
 

@@ -36,18 +36,27 @@ export async function exportElementToPdf(
   const clone = sourceElement.cloneNode(true) as HTMLElement;
 
   // Reset responsive scaling on clone to fit the standard 794px width
-  clone.style.width = '100%';
-  clone.style.maxWidth = '100%';
+  clone.style.width = '794px';
+  clone.style.maxWidth = '794px';
   clone.style.minWidth = '794px';
   clone.style.margin = '0';
-  clone.style.padding = '32px'; // Standard 20mm printable page margin
+  clone.style.padding = '36px 40px'; // Standard A4 ~20mm printable page margin
   clone.style.backgroundColor = '#ffffff';
   clone.style.color = '#0f172a';
   clone.style.boxSizing = 'border-box';
+  (clone.style as any).webkitFontSmoothing = 'antialiased';
+  (clone.style as any).mozOsxFontSmoothing = 'grayscale';
 
   // Remove dark mode classes from clone and all children to ensure clean white background
   clone.classList.remove('dark');
-  clone.querySelectorAll('.dark').forEach(el => el.classList.remove('dark'));
+  clone.querySelectorAll('*').forEach(el => {
+    el.classList.remove('dark');
+    const htmlEl = el as HTMLElement;
+    // Force dark text on light backgrounds if text color was relying on dark mode
+    if (window.getComputedStyle(htmlEl).color === 'rgb(255, 255, 255)' && !htmlEl.classList.contains('bg-slate-900') && !htmlEl.classList.contains('bg-blue-900') && !htmlEl.classList.contains('bg-slate-800') && !htmlEl.classList.contains('bg-emerald-600') && !htmlEl.classList.contains('bg-green-600') && !htmlEl.classList.contains('bg-amber-500') && !htmlEl.classList.contains('text-white')) {
+      htmlEl.style.color = '#0f172a';
+    }
+  });
 
   // Remove interactive or ignore buttons marked for PDF exclusion
   clone.querySelectorAll('[data-html2canvas-ignore="true"], .print\\:hidden').forEach(el => el.remove());
@@ -57,16 +66,24 @@ export async function exportElementToPdf(
 
   try {
     // Wait briefly for images/fonts in clone to settle
-    await new Promise(resolve => setTimeout(resolve, 150));
+    await new Promise(resolve => setTimeout(resolve, 250));
 
-    // Capture canvas with 3.0 scale for ultra-sharp ~300 DPI print quality
+    // Capture canvas with 3.5 scale for ultra-sharp ~350 DPI print quality (DHL/Amazon enterprise grade)
     const canvas = await html2canvas(clone, {
-      scale: 3,
+      scale: 3.5,
       useCORS: true,
       allowTaint: true,
       backgroundColor: '#ffffff',
       logging: false,
-      windowWidth: 1024
+      windowWidth: 1024,
+      imageTimeout: 15000,
+      onclone: (clonedDoc) => {
+        // Ensure all images inside cloned document have crossOrigin set
+        const images = clonedDoc.getElementsByTagName('img');
+        for (let i = 0; i < images.length; i++) {
+          images[i].crossOrigin = 'anonymous';
+        }
+      }
     });
 
     const pdf = new jsPDF({

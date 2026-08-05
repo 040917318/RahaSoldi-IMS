@@ -440,94 +440,152 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
 
         {/* Printable Document Canvas */}
         <div className="w-full overflow-x-auto">
-          <div ref={printRef} className="print:block w-full max-w-2xl mx-auto bg-white text-black p-3.5 sm:p-8 border border-slate-200 rounded-lg print:border-0 print:p-0 shadow-sm min-w-0">
-          <div className="text-center mb-6 sm:mb-8 border-b pb-4 flex flex-col items-center">
-            <img src={logoUrl} alt="Raha Soldi Ent. Logo" className="mb-1" style={{ width: 'auto', maxHeight: '70px', objectFit: 'contain' }} crossOrigin="anonymous" />
-            <p className="text-slate-600 text-xs sm:text-sm font-medium mt-1">General Trading & Supplies</p>
-            <p className="text-slate-600 text-xs sm:text-sm">Loc: Adabraka Adjacent NDC HQ</p>
-            <p className="text-slate-600 text-xs sm:text-sm">Tel: 0272326845/ 0277317589/ 0208338431</p>
-            <h2 className="text-lg sm:text-2xl font-bold mt-3 sm:mt-4 text-slate-800 uppercase tracking-wider">
-              {mode === 'receipt' ? 'Sales Receipt' : 'Invoice'}
-            </h2>
-          </div>
+          <div ref={printRef} className="print:block w-full max-w-3xl mx-auto bg-white text-slate-900 p-6 sm:p-10 border border-slate-200 rounded-xl print:border-0 print:p-0 shadow-sm min-w-0 font-sans">
+            
+            {/* DHL/Amazon Corporate Accent Top Strip */}
+            <div className="h-2 w-full bg-slate-900 rounded-t-sm mb-6" />
 
-          {documentItems.length > 0 ? (
-            <>
-              <div className="flex justify-between items-start mb-4 sm:mb-6 text-xs sm:text-sm gap-2">
-                <div>
-                  <p className="text-slate-500 font-medium">{mode === 'invoice' ? 'Bill To:' : 'Customer:'}</p>
-                  <p className="font-bold text-sm sm:text-base">{customerName || 'Walk-in Customer'}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-slate-500 font-medium">Date:</p>
-                  <p className="font-semibold">{documentDate ? new Date(documentDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString()}</p>
-                  <p className="text-slate-500 font-medium mt-1.5">{mode === 'invoice' ? 'Invoice No:' : 'Receipt No:'}</p>
-                  <p className="font-mono text-xs sm:text-sm">{selectedSaleId ? selectedSaleId.slice(-8).toUpperCase() : `${mode === 'invoice' ? 'INV' : 'REC'}-${Math.floor(Math.random() * 1000000)}`}</p>
+            {/* Header: Document Badge Left, Logo Center, Company Name Right */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 items-center pb-5 mb-5 border-b border-slate-200 gap-4">
+              {/* Left Column: Document Type Badge */}
+              <div className="flex justify-start">
+                <div className="bg-slate-900 text-white px-4 py-2 rounded-lg font-black text-xs sm:text-sm tracking-widest uppercase shadow-sm">
+                  {mode === 'receipt' ? 'OFFICIAL SALES RECEIPT' : 'PRO-FORMA INVOICE'}
                 </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full mb-4 sm:mb-6 text-xs sm:text-sm">
-                  <thead>
-                    <tr className="border-b-2 border-slate-800">
-                      <th className="text-left py-1.5 sm:py-2 font-bold">Description</th>
-                      <th className="text-center py-1.5 sm:py-2 font-bold px-1">Qty</th>
-                      <th className="text-right py-1.5 sm:py-2 font-bold px-1">Unit Price</th>
-                      <th className="text-right py-1.5 sm:py-2 font-bold">Amount</th>
-                      <th className="print:hidden w-6" data-html2canvas-ignore="true"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {documentItems.map((item, idx) => (
-                      <tr key={idx} className="border-b border-slate-200">
-                        <td className="py-1.5 sm:py-2 break-words max-w-[120px] sm:max-w-none">{item.description}</td>
-                        <td className="text-center py-1.5 sm:py-2 px-1">{item.quantity}</td>
-                        <td className="text-right py-1.5 sm:py-2 px-1">{currencySymbol}{item.price.toFixed(2)}</td>
-                        <td className="text-right py-1.5 sm:py-2">{currencySymbol}{(item.quantity * item.price).toFixed(2)}</td>
-                        <td className="print:hidden text-right pl-1" data-html2canvas-ignore="true">
-                          <button onClick={() => handleRemoveItem(idx)} className="text-red-500 hover:text-red-700 p-1">
-                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+
+              {/* Center Column: Logo */}
+              <div className="flex justify-center">
+                <img src={logoUrl} alt="Raha Soldi Ent. Logo" className="h-14 w-auto object-contain" crossOrigin="anonymous" />
               </div>
-              <div className="flex justify-end">
-                <div className="w-full sm:w-64 space-y-1.5 sm:space-y-2 text-xs sm:text-sm">
-                  <div className="flex justify-between py-1">
-                    <span className="text-slate-600">Subtotal:</span>
-                    <span>{currencySymbol}{subtotal.toFixed(2)}</span>
-                  </div>
-                  {discount > 0 && (
-                    <div className="flex justify-between py-1 text-red-600">
-                      <span>Discount:</span>
-                      <span>-{currencySymbol}{discount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {applyTax && (
-                    <div className="flex justify-between py-1 text-slate-600">
-                      <span>Tax (20%):</span>
-                      <span>{currencySymbol}{taxAmount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between py-1.5 sm:py-2 font-bold text-base sm:text-lg border-t-2 border-slate-800 mt-2">
-                    <span>Total:</span>
-                    <span>{currencySymbol}{grandTotal.toFixed(2)}</span>
-                  </div>
-                </div>
+
+              {/* Right Column: Company Name & Tagline */}
+              <div className="text-left sm:text-right">
+                <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight uppercase leading-none">RAHA SOLDI ENTERPRISE</h1>
+                <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1">General Trading & Supplies</p>
               </div>
-            </>
-          ) : (
-            <div className="text-center py-8 sm:py-12 text-slate-400 text-xs sm:text-sm">
-              Add items to preview {mode === 'receipt' ? 'receipt' : 'invoice'}
             </div>
-          )}
 
-          <div className="mt-8 sm:mt-12 text-center text-xs sm:text-sm text-slate-500 border-t pt-3 sm:pt-4">
-            <p>Thank you for your business!</p>
+            {documentItems.length > 0 ? (
+              <>
+                {/* 2-Column Balanced Information Grid: Issuer Info Box & Billed To/Metadata Box */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                  {/* Issuer Box */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">ISSUED BY / SUPPLIER</p>
+                    <p className="font-extrabold text-sm text-slate-900">RAHA SOLDI ENTERPRISE</p>
+                    <p className="text-xs text-slate-600 mt-1">📍 Adabraka, Adjacent NDC HQ, Accra, Ghana</p>
+                    <p className="text-xs text-slate-600">📞 0272326845 / 0277317589 / 0208338431</p>
+                  </div>
+
+                  {/* Customer / Billed To & Document Details Box */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex justify-between items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">CUSTOMER / BILLED TO</p>
+                      <p className="font-extrabold text-sm text-slate-900 break-words leading-snug whitespace-normal">{customerName || 'Walk-in Retail Customer'}</p>
+                    </div>
+
+                    <div className="text-right text-xs space-y-1 font-medium shrink-0">
+                      <p><span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">{mode === 'invoice' ? 'INV:' : 'REC:'}</span> <span className="font-mono font-bold text-slate-900">{selectedSaleId ? selectedSaleId.slice(-8).toUpperCase() : `${mode === 'invoice' ? 'INV' : 'REC'}-${Math.floor(Math.random() * 899999 + 100000)}`}</span></p>
+                      <p><span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">DATE:</span> <span className="font-bold text-slate-800">{documentDate ? new Date(documentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span></p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Line Items Table */}
+                <div className="overflow-hidden rounded-xl border border-slate-200 mb-6 shadow-none">
+                  <table className="w-full text-xs sm:text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-slate-900 text-white font-black text-[11px] uppercase tracking-wider">
+                        <th className="py-3 px-3 text-center w-12 border-b border-slate-900">#</th>
+                        <th className="py-3 px-4 text-left border-b border-slate-900">Item Description</th>
+                        <th className="py-3 px-3 text-center w-20 border-b border-slate-900">Qty</th>
+                        <th className="py-3 px-4 text-right w-32 border-b border-slate-900">Unit Price</th>
+                        <th className="py-3 px-4 text-right w-36 border-b border-slate-900">Total</th>
+                        <th className="print:hidden w-8 border-b border-slate-900" data-html2canvas-ignore="true"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {documentItems.map((item, idx) => (
+                        <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}>
+                          <td className="py-3 px-3 text-center text-slate-400 font-bold">{idx + 1}</td>
+                          <td className="py-3 px-4 font-semibold text-slate-800 break-words">{item.description}</td>
+                          <td className="py-3 px-3 text-center font-extrabold text-slate-700">{item.quantity}</td>
+                          <td className="py-3 px-4 text-right font-mono font-medium text-slate-700">{currencySymbol}{item.price.toFixed(2)}</td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">{currencySymbol}{(item.quantity * item.price).toFixed(2)}</td>
+                          <td className="print:hidden text-center pr-2" data-html2canvas-ignore="true">
+                            <button onClick={() => handleRemoveItem(idx)} className="text-rose-500 hover:text-rose-700 p-1 transition-colors">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Financial Totals & Payment Details 2-Column */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 items-start">
+                  {/* Left Column: Terms & Return Policy */}
+                  <div className="sm:col-span-7 space-y-3">
+                    <div className="text-[10px] text-slate-400 leading-relaxed pl-1 pt-2">
+                      <p className="font-semibold text-slate-500">TERMS & RETURN POLICY:</p>
+                      <p>All items supplied are verified against strict quality checks. Eligible exchange or warranty requests accepted within 7 days upon presentation of this original document.</p>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Calculations Card */}
+                  <div className="sm:col-span-5">
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2.5 text-xs">
+                      <div className="flex justify-between text-slate-600 font-medium">
+                        <span>Subtotal:</span>
+                        <span className="font-mono font-bold text-slate-800">{currencySymbol}{subtotal.toFixed(2)}</span>
+                      </div>
+                      
+                      {discount > 0 && (
+                        <div className="flex justify-between text-rose-600 font-medium">
+                          <span>Discount Applied:</span>
+                          <span className="font-mono font-bold">-{currencySymbol}{discount.toFixed(2)}</span>
+                        </div>
+                      )}
+                      
+                      {applyTax && (
+                        <div className="flex justify-between text-slate-600 font-medium">
+                          <span>VAT / Tax (20%):</span>
+                          <span className="font-mono font-bold text-slate-800">{currencySymbol}{taxAmount.toFixed(2)}</span>
+                        </div>
+                      )}
+
+                      <div className="border-t-2 border-slate-900 pt-2.5 mt-2">
+                        <div className="bg-slate-900 text-white rounded-lg p-3.5 flex justify-between items-center shadow-md">
+                          <span className="font-black text-xs uppercase tracking-wider">TOTAL PAID:</span>
+                          <span className="font-mono text-base sm:text-lg font-black tracking-tight">{currencySymbol}{grandTotal.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-12 text-slate-400 text-sm">
+                Add items to preview enterprise {mode === 'receipt' ? 'receipt' : 'invoice'}
+              </div>
+            )}
+
+            {/* Bottom Footer & Official Computer Generated Seal */}
+            <div className="mt-8 pt-5 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="font-semibold text-slate-700">Official Computer Generated Document</span>
+                <span className="text-slate-400">| Valid without physical signature</span>
+              </div>
+              
+              <div className="text-center sm:text-right font-mono text-[10px] text-slate-400">
+                Page 1 of 1 • Raha Soldi Enterprise • Accra, Ghana
+              </div>
+            </div>
+
           </div>
-        </div>
         </div>
       </div>
 
@@ -624,6 +682,6 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
           </div>
         </div>
       )}
-      </div>
+    </div>
   );
 };

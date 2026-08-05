@@ -387,7 +387,7 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                 key={cartTotal}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tighter"
+                className="text-xl sm:text-3xl lg:text-4xl font-black text-slate-900 dark:text-white tracking-tight truncate max-w-full"
               >
                 {currencySymbol}{cartTotal.toFixed(2)}
               </motion.span>

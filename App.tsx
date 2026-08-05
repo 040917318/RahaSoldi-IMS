@@ -40,7 +40,23 @@ const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(true);
 
   // State Management
-  const [activeView, setActiveView] = useState<ViewState>('dashboard');
+  const [activeView, setActiveView] = useState<ViewState>(() => {
+    try {
+      const saved = localStorage.getItem('activeView') as ViewState;
+      return saved || 'dashboard';
+    } catch {
+      return 'dashboard';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (activeView) localStorage.setItem('activeView', activeView);
+    } catch (e) {
+      console.error('Failed to save activeView', e);
+    }
+  }, [activeView]);
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -101,7 +117,12 @@ const App: React.FC = () => {
   }, [session]);
 
   // Data State
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>(() => {
+    try {
+      const local = localStorage.getItem('inventory');
+      return local ? JSON.parse(local) : [];
+    } catch { return []; }
+  });
   const [dbKeys, setDbKeys] = useState<{ [key: string]: string }>({});
 
   const mapToDb = (item: any, table: 'inventory' | 'sales' | 'pending_sales') => {
@@ -130,9 +151,24 @@ const App: React.FC = () => {
     }
     return item;
   };
-  const [sales, setSales] = useState<SaleRecord[]>([]);
-  const [pendingSales, setPendingSales] = useState<PendingSale[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [sales, setSales] = useState<SaleRecord[]>(() => {
+    try {
+      const local = localStorage.getItem('sales');
+      return local ? JSON.parse(local) : [];
+    } catch { return []; }
+  });
+  const [pendingSales, setPendingSales] = useState<PendingSale[]>(() => {
+    try {
+      const local = localStorage.getItem('pendingSales');
+      return local ? JSON.parse(local) : [];
+    } catch { return []; }
+  });
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
+    try {
+      const local = localStorage.getItem('auditLogs');
+      return local ? JSON.parse(local) : [];
+    } catch { return []; }
+  });
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Dark Mode Effect
@@ -190,9 +226,13 @@ const App: React.FC = () => {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
-      if (session) setActiveView('dashboard');
+      // Only reset to dashboard when explicitly signing in, not on TOKEN_REFRESHED or tab focus
+      if (event === 'SIGNED_IN') {
+        const savedView = localStorage.getItem('activeView') as ViewState;
+        if (!savedView) setActiveView('dashboard');
+      }
     });
 
     return () => subscription.unsubscribe();
