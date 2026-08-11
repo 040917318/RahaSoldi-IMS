@@ -35,10 +35,14 @@ export async function exportElementToPdf(
   // Clone the source element
   const clone = sourceElement.cloneNode(true) as HTMLElement;
 
-  // Reset responsive scaling on clone to fit the standard 794px width
+  // Reset responsive scaling on clone to fit the standard 794px width and standard A4 height
   clone.style.width = '794px';
   clone.style.maxWidth = '794px';
   clone.style.minWidth = '794px';
+  clone.style.minHeight = '1050px'; // Fills standard A4 printable area (1123px total - 72px padding)
+  clone.style.display = 'flex';
+  clone.style.flexDirection = 'column';
+  clone.style.justifyContent = 'space-between';
   clone.style.margin = '0';
   clone.style.padding = '36px 40px'; // Standard A4 ~20mm printable page margin
   clone.style.backgroundColor = '#ffffff';
@@ -46,12 +50,16 @@ export async function exportElementToPdf(
   clone.style.boxSizing = 'border-box';
   (clone.style as any).webkitFontSmoothing = 'antialiased';
   (clone.style as any).mozOsxFontSmoothing = 'grayscale';
+  (clone.style as any).textRendering = 'geometricPrecision';
 
   // Remove dark mode classes from clone and all children to ensure clean white background
   clone.classList.remove('dark');
   clone.querySelectorAll('*').forEach(el => {
     el.classList.remove('dark');
     const htmlEl = el as HTMLElement;
+    (htmlEl.style as any).webkitFontSmoothing = 'antialiased';
+    (htmlEl.style as any).mozOsxFontSmoothing = 'grayscale';
+    (htmlEl.style as any).textRendering = 'geometricPrecision';
     // Force dark text on light backgrounds if text color was relying on dark mode
     if (window.getComputedStyle(htmlEl).color === 'rgb(255, 255, 255)' && !htmlEl.classList.contains('bg-slate-900') && !htmlEl.classList.contains('bg-blue-900') && !htmlEl.classList.contains('bg-slate-800') && !htmlEl.classList.contains('bg-emerald-600') && !htmlEl.classList.contains('bg-green-600') && !htmlEl.classList.contains('bg-amber-500') && !htmlEl.classList.contains('text-white')) {
       htmlEl.style.color = '#0f172a';
@@ -66,16 +74,17 @@ export async function exportElementToPdf(
 
   try {
     // Wait briefly for images/fonts in clone to settle
-    await new Promise(resolve => setTimeout(resolve, 250));
+    await new Promise(resolve => setTimeout(resolve, 300));
 
-    // Capture canvas with 3.5 scale for ultra-sharp ~350 DPI print quality (DHL/Amazon enterprise grade)
+    // Capture canvas with 4.0 scale for ultra-sharp ~400 DPI print quality
     const canvas = await html2canvas(clone, {
-      scale: 3.5,
+      scale: 4.0,
       useCORS: true,
       allowTaint: true,
       backgroundColor: '#ffffff',
       logging: false,
-      windowWidth: 1024,
+      windowWidth: 794,
+      windowHeight: 1123,
       imageTimeout: 15000,
       onclone: (clonedDoc) => {
         // Ensure all images inside cloned document have crossOrigin set
@@ -118,6 +127,9 @@ export async function exportElementToPdf(
 
       const ctx = pageCanvas.getContext('2d');
       if (ctx) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
         // Fill white background for the page
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
@@ -130,10 +142,10 @@ export async function exportElementToPdf(
         );
       }
 
-      const pageImgData = pageCanvas.toDataURL('image/png');
+      const pageImgData = pageCanvas.toDataURL('image/png', 1.0);
       const sliceHeightMm = (sliceHeightPx * pdfWidthMm) / canvas.width;
 
-      pdf.addImage(pageImgData, 'PNG', 0, 0, pdfWidthMm, sliceHeightMm, undefined, 'FAST');
+      pdf.addImage(pageImgData, 'PNG', 0, 0, pdfWidthMm, sliceHeightMm);
 
       renderedPx += pageHeightPx;
       pageIndex++;

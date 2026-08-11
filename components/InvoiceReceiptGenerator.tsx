@@ -440,147 +440,149 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
 
         {/* Printable Document Canvas */}
         <div className="w-full overflow-x-auto">
-          <div ref={printRef} className="print:block w-full max-w-3xl mx-auto bg-white text-slate-900 p-6 sm:p-10 border border-slate-200 rounded-xl print:border-0 print:p-0 shadow-sm min-w-0 font-sans">
+          <div ref={printRef} className="print:block w-full max-w-3xl mx-auto bg-white text-slate-900 p-8 sm:p-12 border border-slate-200 rounded-2xl print:border-0 print:p-0 shadow-sm min-w-0 font-sans flex flex-col justify-between min-h-[960px]">
             
-            {/* DHL/Amazon Corporate Accent Top Strip */}
-            <div className="h-2 w-full bg-slate-900 rounded-t-sm mb-6" />
+            <div>
+              {/* DHL/Amazon Corporate Accent Top Strip */}
+              <div className="h-2.5 w-full bg-slate-900 rounded-t-sm mb-7" />
 
-            {/* Header: Document Badge Left, Logo Center, Company Name Right */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 items-center pb-5 mb-5 border-b border-slate-200 gap-4">
-              {/* Left Column: Document Type Badge */}
-              <div className="flex justify-start">
-                <div className="bg-slate-900 text-white px-4 py-2 rounded-lg font-black text-xs sm:text-sm tracking-widest uppercase shadow-sm">
-                  {mode === 'receipt' ? 'OFFICIAL SALES RECEIPT' : 'PRO-FORMA INVOICE'}
+              {/* Header: Document Badge Left, Logo Center, Company Name Right */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 items-center pb-6 mb-7 border-b-2 border-slate-900/10 gap-6">
+                {/* Left Column: Document Type Badge */}
+                <div className="flex justify-start">
+                  <div className="bg-slate-900 text-white px-5 py-2.5 rounded-xl font-black text-xs sm:text-sm tracking-widest uppercase shadow-sm">
+                    {mode === 'receipt' ? 'OFFICIAL SALES RECEIPT' : 'PRO-FORMA INVOICE'}
+                  </div>
+                </div>
+
+                {/* Center Column: Logo */}
+                <div className="flex justify-center">
+                  <img src={logoUrl} alt="Raha Soldi Ent. Logo" className="h-16 w-auto object-contain" crossOrigin="anonymous" />
+                </div>
+
+                {/* Right Column: Company Name & Tagline */}
+                <div className="text-left sm:text-right">
+                  <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight uppercase leading-snug">RAHA SOLDI ENTERPRISE</h1>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1.5">General Trading & Supplies</p>
                 </div>
               </div>
 
-              {/* Center Column: Logo */}
-              <div className="flex justify-center">
-                <img src={logoUrl} alt="Raha Soldi Ent. Logo" className="h-14 w-auto object-contain" crossOrigin="anonymous" />
-              </div>
+              {documentItems.length > 0 ? (
+                <>
+                  {/* 2-Column Balanced Information Grid: Issuer Info Box & Billed To/Metadata Box */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+                    {/* Issuer Box */}
+                    <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-5 sm:p-6 shadow-2xs">
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">ISSUED BY / SUPPLIER</p>
+                      <p className="font-black text-base text-slate-900">RAHA SOLDI ENTERPRISE</p>
+                      <p className="text-xs sm:text-sm text-slate-600 mt-1.5">📍 Adabraka, Adjacent NDC HQ, Accra, Ghana</p>
+                      <p className="text-xs sm:text-sm text-slate-600 mt-0.5">📞 0272326845 / 0277317589 / 0208338431</p>
+                    </div>
 
-              {/* Right Column: Company Name & Tagline */}
-              <div className="text-left sm:text-right">
-                <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight uppercase leading-none">RAHA SOLDI ENTERPRISE</h1>
-                <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1">General Trading & Supplies</p>
-              </div>
+                    {/* Customer / Billed To & Document Details Box */}
+                    <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-5 sm:p-6 shadow-2xs flex justify-between items-start gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">CUSTOMER / BILLED TO</p>
+                        <p className="font-extrabold text-base text-slate-900 break-words leading-snug whitespace-normal">{customerName || 'Walk-in Retail Customer'}</p>
+                      </div>
+
+                      <div className="text-right text-xs sm:text-sm space-y-1.5 font-medium shrink-0">
+                        <p><span className="text-slate-400 text-xs font-bold uppercase tracking-wider">{mode === 'invoice' ? 'INV:' : 'REC:'}</span> <span className="font-mono font-bold text-slate-900">{selectedSaleId ? selectedSaleId.slice(-8).toUpperCase() : `${mode === 'invoice' ? 'INV' : 'REC'}-${Math.floor(Math.random() * 899999 + 100000)}`}</span></p>
+                        <p><span className="text-slate-400 text-xs font-bold uppercase tracking-wider">DATE:</span> <span className="font-bold text-slate-800">{documentDate ? new Date(documentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span></p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Line Items Table */}
+                  <div className="overflow-hidden rounded-2xl border border-slate-200/90 mb-8 shadow-2xs min-h-[220px]">
+                    <table className="w-full text-xs sm:text-sm border-collapse">
+                      <thead>
+                        <tr className="bg-slate-900 text-white font-black text-xs uppercase tracking-wider h-12">
+                          <th className="py-3.5 px-4 text-center w-12 border-b border-slate-900">#</th>
+                          <th className="py-3.5 px-5 text-left border-b border-slate-900">Item Description</th>
+                          <th className="py-3.5 px-4 text-center w-24 border-b border-slate-900">Qty</th>
+                          <th className="py-3.5 px-5 text-right w-36 border-b border-slate-900">Unit Price</th>
+                          <th className="py-3.5 px-5 text-right w-40 border-b border-slate-900">Total</th>
+                          <th className="print:hidden w-8 border-b border-slate-900" data-html2canvas-ignore="true"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200/90">
+                        {documentItems.map((item, idx) => (
+                          <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}>
+                            <td className="py-4 px-4 text-center text-slate-400 font-bold">{idx + 1}</td>
+                            <td className="py-4 px-5 font-semibold text-slate-800 break-words">{item.description}</td>
+                            <td className="py-4 px-4 text-center font-extrabold text-slate-700">{item.quantity}</td>
+                            <td className="py-4 px-5 text-right font-mono font-medium text-slate-700">{currencySymbol}{item.price.toFixed(2)}</td>
+                            <td className="py-4 px-5 text-right font-mono font-bold text-slate-900">{currencySymbol}{(item.quantity * item.price).toFixed(2)}</td>
+                            <td className="print:hidden text-center pr-2" data-html2canvas-ignore="true">
+                              <button onClick={() => handleRemoveItem(idx)} className="text-rose-500 hover:text-rose-700 p-1 transition-colors">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Financial Totals & Payment Details 2-Column */}
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-8 items-start mb-8">
+                    {/* Left Column: Terms & Return Policy */}
+                    <div className="sm:col-span-7 space-y-3">
+                      <div className="text-xs text-slate-500 leading-relaxed space-y-1.5 p-4 bg-slate-50/70 rounded-2xl border border-slate-200/80">
+                        <p className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">TERMS & RETURN POLICY:</p>
+                        <p>All items supplied are verified against strict quality checks. Eligible exchange or warranty requests accepted within 7 days upon presentation of this original document.</p>
+                      </div>
+                    </div>
+
+                    {/* Right Column: Calculations Card */}
+                    <div className="sm:col-span-5">
+                      <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-5 sm:p-6 space-y-3 text-xs sm:text-sm">
+                        <div className="flex justify-between text-slate-600 font-medium">
+                          <span>Subtotal:</span>
+                          <span className="font-mono font-bold text-slate-800">{currencySymbol}{subtotal.toFixed(2)}</span>
+                        </div>
+                        
+                        {discount > 0 && (
+                          <div className="flex justify-between text-rose-600 font-medium">
+                            <span>Discount Applied:</span>
+                            <span className="font-mono font-bold">-{currencySymbol}{discount.toFixed(2)}</span>
+                          </div>
+                        )}
+                        
+                        {applyTax && (
+                          <div className="flex justify-between text-slate-600 font-medium">
+                            <span>VAT / Tax (20%):</span>
+                            <span className="font-mono font-bold text-slate-800">{currencySymbol}{taxAmount.toFixed(2)}</span>
+                          </div>
+                        )}
+
+                        <div className="border-t-2 border-slate-900 pt-3 mt-2">
+                          <div className="bg-slate-900 text-white rounded-xl p-4 sm:p-5 flex justify-between items-center shadow-md">
+                            <span className="font-black text-xs sm:text-sm uppercase tracking-wider">TOTAL PAID:</span>
+                            <span className="font-mono text-lg sm:text-xl font-black tracking-tight">{currencySymbol}{grandTotal.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-16 text-slate-400 text-sm font-medium">
+                  Add items to preview enterprise {mode === 'receipt' ? 'receipt' : 'invoice'}
+                </div>
+              )}
             </div>
 
-            {documentItems.length > 0 ? (
-              <>
-                {/* 2-Column Balanced Information Grid: Issuer Info Box & Billed To/Metadata Box */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                  {/* Issuer Box */}
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">ISSUED BY / SUPPLIER</p>
-                    <p className="font-extrabold text-sm text-slate-900">RAHA SOLDI ENTERPRISE</p>
-                    <p className="text-xs text-slate-600 mt-1">📍 Adabraka, Adjacent NDC HQ, Accra, Ghana</p>
-                    <p className="text-xs text-slate-600">📞 0272326845 / 0277317589 / 0208338431</p>
-                  </div>
-
-                  {/* Customer / Billed To & Document Details Box */}
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex justify-between items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">CUSTOMER / BILLED TO</p>
-                      <p className="font-extrabold text-sm text-slate-900 break-words leading-snug whitespace-normal">{customerName || 'Walk-in Retail Customer'}</p>
-                    </div>
-
-                    <div className="text-right text-xs space-y-1 font-medium shrink-0">
-                      <p><span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">{mode === 'invoice' ? 'INV:' : 'REC:'}</span> <span className="font-mono font-bold text-slate-900">{selectedSaleId ? selectedSaleId.slice(-8).toUpperCase() : `${mode === 'invoice' ? 'INV' : 'REC'}-${Math.floor(Math.random() * 899999 + 100000)}`}</span></p>
-                      <p><span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">DATE:</span> <span className="font-bold text-slate-800">{documentDate ? new Date(documentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span></p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Line Items Table */}
-                <div className="overflow-hidden rounded-xl border border-slate-200 mb-6 shadow-none">
-                  <table className="w-full text-xs sm:text-sm border-collapse">
-                    <thead>
-                      <tr className="bg-slate-900 text-white font-black text-[11px] uppercase tracking-wider">
-                        <th className="py-3 px-3 text-center w-12 border-b border-slate-900">#</th>
-                        <th className="py-3 px-4 text-left border-b border-slate-900">Item Description</th>
-                        <th className="py-3 px-3 text-center w-20 border-b border-slate-900">Qty</th>
-                        <th className="py-3 px-4 text-right w-32 border-b border-slate-900">Unit Price</th>
-                        <th className="py-3 px-4 text-right w-36 border-b border-slate-900">Total</th>
-                        <th className="print:hidden w-8 border-b border-slate-900" data-html2canvas-ignore="true"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {documentItems.map((item, idx) => (
-                        <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}>
-                          <td className="py-3 px-3 text-center text-slate-400 font-bold">{idx + 1}</td>
-                          <td className="py-3 px-4 font-semibold text-slate-800 break-words">{item.description}</td>
-                          <td className="py-3 px-3 text-center font-extrabold text-slate-700">{item.quantity}</td>
-                          <td className="py-3 px-4 text-right font-mono font-medium text-slate-700">{currencySymbol}{item.price.toFixed(2)}</td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">{currencySymbol}{(item.quantity * item.price).toFixed(2)}</td>
-                          <td className="print:hidden text-center pr-2" data-html2canvas-ignore="true">
-                            <button onClick={() => handleRemoveItem(idx)} className="text-rose-500 hover:text-rose-700 p-1 transition-colors">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Financial Totals & Payment Details 2-Column */}
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 items-start">
-                  {/* Left Column: Terms & Return Policy */}
-                  <div className="sm:col-span-7 space-y-3">
-                    <div className="text-[10px] text-slate-400 leading-relaxed pl-1 pt-2">
-                      <p className="font-semibold text-slate-500">TERMS & RETURN POLICY:</p>
-                      <p>All items supplied are verified against strict quality checks. Eligible exchange or warranty requests accepted within 7 days upon presentation of this original document.</p>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Calculations Card */}
-                  <div className="sm:col-span-5">
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2.5 text-xs">
-                      <div className="flex justify-between text-slate-600 font-medium">
-                        <span>Subtotal:</span>
-                        <span className="font-mono font-bold text-slate-800">{currencySymbol}{subtotal.toFixed(2)}</span>
-                      </div>
-                      
-                      {discount > 0 && (
-                        <div className="flex justify-between text-rose-600 font-medium">
-                          <span>Discount Applied:</span>
-                          <span className="font-mono font-bold">-{currencySymbol}{discount.toFixed(2)}</span>
-                        </div>
-                      )}
-                      
-                      {applyTax && (
-                        <div className="flex justify-between text-slate-600 font-medium">
-                          <span>VAT / Tax (20%):</span>
-                          <span className="font-mono font-bold text-slate-800">{currencySymbol}{taxAmount.toFixed(2)}</span>
-                        </div>
-                      )}
-
-                      <div className="border-t-2 border-slate-900 pt-2.5 mt-2">
-                        <div className="bg-slate-900 text-white rounded-lg p-3.5 flex justify-between items-center shadow-md">
-                          <span className="font-black text-xs uppercase tracking-wider">TOTAL PAID:</span>
-                          <span className="font-mono text-base sm:text-lg font-black tracking-tight">{currencySymbol}{grandTotal.toFixed(2)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-12 text-slate-400 text-sm">
-                Add items to preview enterprise {mode === 'receipt' ? 'receipt' : 'invoice'}
-              </div>
-            )}
-
             {/* Bottom Footer & Official Computer Generated Seal */}
-            <div className="mt-8 pt-5 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500">
+            <div className="mt-auto pt-7 border-t-2 border-slate-900/10 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span className="font-semibold text-slate-700">Official Computer Generated Document</span>
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-2xs" />
+                <span className="font-bold text-slate-700">Official Computer Generated Document</span>
                 <span className="text-slate-400">| Valid without physical signature</span>
               </div>
               
-              <div className="text-center sm:text-right font-mono text-[10px] text-slate-400">
+              <div className="text-center sm:text-right font-mono text-xs font-semibold text-slate-400">
                 Page 1 of 1 • Raha Soldi Enterprise • Accra, Ghana
               </div>
             </div>
