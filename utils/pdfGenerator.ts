@@ -8,9 +8,9 @@ export interface PdfExportOptions {
 }
 
 /**
- * Generates a standard high-resolution A4 PDF document from a DOM element.
- * Complies with professional print standards (PDF/X-4 reference specs: 300 DPI target, 
- * clean white background, standard 210mm x 297mm A4 pagination, sharp crisp vector-like text).
+ * Generates a high-resolution A4 PDF document from a DOM element.
+ * Complies with print standards (clean white background, standard 210mm x 297mm A4 pagination,
+ * sharp crisp text and images, optimized for both desktop and mobile devices).
  */
 export async function exportElementToPdf(
   sourceElement: HTMLElement,
@@ -19,7 +19,6 @@ export async function exportElementToPdf(
   const { fileName, returnBlob = false } = options;
 
   // Create a temporary off-screen container with fixed A4 dimensions (794px width = 210mm at 96DPI)
-  // This guarantees identical, non-zoomed, un-distorted output whether called on a phone, tablet, or laptop screen.
   const tempContainer = document.createElement('div');
   tempContainer.style.position = 'fixed';
   tempContainer.style.left = '-9999px';
@@ -35,16 +34,16 @@ export async function exportElementToPdf(
   // Clone the source element
   const clone = sourceElement.cloneNode(true) as HTMLElement;
 
-  // Reset responsive scaling on clone to fit the standard 794px width and standard A4 height
+  // Reset responsive scaling on clone to fit standard 794px width and standard A4 height
   clone.style.width = '794px';
   clone.style.maxWidth = '794px';
   clone.style.minWidth = '794px';
-  clone.style.minHeight = '1050px'; // Fills standard A4 printable area (1123px total - 72px padding)
+  clone.style.minHeight = '1050px';
   clone.style.display = 'flex';
   clone.style.flexDirection = 'column';
   clone.style.justifyContent = 'space-between';
   clone.style.margin = '0';
-  clone.style.padding = '36px 40px'; // Standard A4 ~20mm printable page margin
+  clone.style.padding = '36px 40px';
   clone.style.backgroundColor = '#ffffff';
   clone.style.color = '#0f172a';
   clone.style.boxSizing = 'border-box';
@@ -61,7 +60,16 @@ export async function exportElementToPdf(
     (htmlEl.style as any).mozOsxFontSmoothing = 'grayscale';
     (htmlEl.style as any).textRendering = 'geometricPrecision';
     // Force dark text on light backgrounds if text color was relying on dark mode
-    if (window.getComputedStyle(htmlEl).color === 'rgb(255, 255, 255)' && !htmlEl.classList.contains('bg-slate-900') && !htmlEl.classList.contains('bg-blue-900') && !htmlEl.classList.contains('bg-slate-800') && !htmlEl.classList.contains('bg-emerald-600') && !htmlEl.classList.contains('bg-green-600') && !htmlEl.classList.contains('bg-amber-500') && !htmlEl.classList.contains('text-white')) {
+    if (
+      window.getComputedStyle(htmlEl).color === 'rgb(255, 255, 255)' &&
+      !htmlEl.classList.contains('bg-slate-900') &&
+      !htmlEl.classList.contains('bg-blue-900') &&
+      !htmlEl.classList.contains('bg-slate-800') &&
+      !htmlEl.classList.contains('bg-emerald-600') &&
+      !htmlEl.classList.contains('bg-green-600') &&
+      !htmlEl.classList.contains('bg-amber-500') &&
+      !htmlEl.classList.contains('text-white')
+    ) {
       htmlEl.style.color = '#0f172a';
     }
   });
@@ -74,20 +82,19 @@ export async function exportElementToPdf(
 
   try {
     // Wait briefly for images/fonts in clone to settle
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise(resolve => setTimeout(resolve, 150));
 
-    // Capture canvas with 4.0 scale for ultra-sharp ~400 DPI print quality
+    // Capture canvas with 2.5 scale for ultra-crisp ~250-300 DPI without mobile memory overflow
     const canvas = await html2canvas(clone, {
-      scale: 4.0,
+      scale: 2.5,
       useCORS: true,
-      allowTaint: true,
+      allowTaint: false,
       backgroundColor: '#ffffff',
       logging: false,
       windowWidth: 794,
       windowHeight: 1123,
-      imageTimeout: 15000,
+      imageTimeout: 10000,
       onclone: (clonedDoc) => {
-        // Ensure all images inside cloned document have crossOrigin set
         const images = clonedDoc.getElementsByTagName('img');
         for (let i = 0; i < images.length; i++) {
           images[i].crossOrigin = 'anonymous';
@@ -105,9 +112,6 @@ export async function exportElementToPdf(
     const pdfWidthMm = pdf.internal.pageSize.getWidth();   // 210 mm
     const pdfHeightMm = pdf.internal.pageSize.getHeight(); // 297 mm
 
-    // Total document height in mm at full aspect ratio
-    const imgHeightMm = (canvas.height * pdfWidthMm) / canvas.width;
-
     // Single page vs Multi-page slicing
     const pageHeightPx = Math.floor((pdfHeightMm / pdfWidthMm) * canvas.width);
     let renderedPx = 0;
@@ -123,7 +127,7 @@ export async function exportElementToPdf(
       // Create a sub-canvas for this specific page slice
       const pageCanvas = document.createElement('canvas');
       pageCanvas.width = canvas.width;
-      pageCanvas.height = pageHeightPx;
+      pageCanvas.height = sliceHeightPx;
 
       const ctx = pageCanvas.getContext('2d');
       if (ctx) {
@@ -142,10 +146,10 @@ export async function exportElementToPdf(
         );
       }
 
-      const pageImgData = pageCanvas.toDataURL('image/png', 1.0);
+      const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.95);
       const sliceHeightMm = (sliceHeightPx * pdfWidthMm) / canvas.width;
 
-      pdf.addImage(pageImgData, 'PNG', 0, 0, pdfWidthMm, sliceHeightMm);
+      pdf.addImage(pageImgData, 'JPEG', 0, 0, pdfWidthMm, sliceHeightMm, undefined, 'FAST');
 
       renderedPx += pageHeightPx;
       pageIndex++;
@@ -164,3 +168,4 @@ export async function exportElementToPdf(
     }
   }
 }
+

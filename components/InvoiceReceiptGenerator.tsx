@@ -189,40 +189,99 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
   };
 
   const handleWhatsAppShare = async () => {
-    if (!printRef.current) return;
+    if (!printRef.current || documentItems.length === 0) return;
     setIsGeneratingPdf(true);
+
+    const docType = mode === 'receipt' ? 'Receipt' : 'Invoice';
+    const docTitle = mode === 'receipt' ? 'OFFICIAL SALES RECEIPT' : 'PRO-FORMA INVOICE';
+    const docNumber = selectedSaleId
+      ? selectedSaleId.slice(-8).toUpperCase()
+      : `${mode === 'invoice' ? 'INV' : 'REC'}-${Math.floor(Math.random() * 899999 + 100000)}`;
+    const formattedDate = documentDate
+      ? new Date(documentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+      : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const safeCustomerName = customerName.trim()
+      ? customerName.trim().replace(/[/\\?%*:|"<>]/g, '').replace(/\s+/g, '_')
+      : 'Customer';
+    const fileName = `${docType}_${safeCustomerName}_${docNumber}.pdf`;
+
+    const itemsSummary = documentItems
+      .map(item => `• ${item.quantity}x ${item.description} - ${currencySymbol}${(item.quantity * item.price).toFixed(2)}`)
+      .join('\n');
+
+    const whatsappMessage = `*RAHA SOLDI ENTERPRISE*
+*${docTitle}*
+----------------------------------------
+*Doc #:* ${docNumber}
+*Date:* ${formattedDate}
+*Customer:* ${customerName.trim() || 'Walk-in Retail Customer'}
+
+*Items Breakdown:*
+${itemsSummary}
+
+*Total Amount:* ${currencySymbol}${grandTotal.toFixed(2)}
+----------------------------------------
+📍 Adabraka, Adjacent NDC HQ, Accra, Ghana
+📞 0272326845 / 0277317589 / 0208338431
+_Generated via Raha Soldi Enterprise_`;
+
     try {
-      const docType = mode === 'receipt' ? 'Receipt' : 'Invoice';
-      const safeCustomerName = customerName.trim() 
-        ? customerName.trim().replace(/[/\\?%*:|"<>]/g, '').replace(/\s+/g, '_') 
-        : 'Customer';
-      const fileName = `${docType}_${safeCustomerName}.pdf`;
-
-      const pdfBlob = (await exportElementToPdf(printRef.current, {
-        fileName,
-        returnBlob: true
-      })) as Blob;
-
-      const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: mode === 'receipt' ? 'Sales Receipt' : 'Invoice',
-          text: 'Please find the attached document.',
-          files: [file]
-        });
-      } else {
-        const url = URL.createObjectURL(pdfBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        link.click();
-        alert('PDF downloaded! Please attach it in the WhatsApp window that opens.');
-        window.open('https://wa.me/?text=Please+find+the+attached+document', '_blank');
+      let pdfBlob: Blob | null = null;
+      try {
+        pdfBlob = (await exportElementToPdf(printRef.current, {
+          fileName,
+          returnBlob: true
+        })) as Blob;
+      } catch (pdfErr) {
+        console.warn('PDF blob generation error, proceeding with text share:', pdfErr);
       }
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Could not generate PDF for sharing.');
+
+      let sharedNatively = false;
+
+      // 1. Try native Web Share API with attached PDF file if supported
+      if (pdfBlob && typeof navigator !== 'undefined' && navigator.share && navigator.canShare) {
+        try {
+          const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: `${docTitle} - Raha Soldi Enterprise`,
+              text: whatsappMessage,
+              files: [file]
+            });
+            sharedNatively = true;
+          }
+        } catch (shareErr: any) {
+          // If the user cancelled the native share sheet, simply exit gracefully
+          if (shareErr?.name === 'AbortError') {
+            return;
+          }
+          console.warn('Native file share failed, falling back to download + WhatsApp:', shareErr);
+        }
+      }
+
+      // 2. If not shared natively, auto-download PDF & open WhatsApp with pre-filled text
+      if (!sharedNatively) {
+        if (pdfBlob) {
+          const url = URL.createObjectURL(pdfBlob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
+        }
+
+        const encodedText = encodeURIComponent(whatsappMessage);
+        const whatsappUrl = `https://api.whatsapp.com/send?text=${encodedText}`;
+        window.open(whatsappUrl, '_blank');
+      }
+    } catch (error: any) {
+      if (error?.name === 'AbortError') return;
+      console.error('Error in WhatsApp share:', error);
+      // Fallback directly to WhatsApp text link so the user is never blocked
+      const fallbackUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappMessage)}`;
+      window.open(fallbackUrl, '_blank');
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -418,19 +477,30 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
             <FileText className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" />
             {mode === 'receipt' ? 'Receipt Preview' : 'Invoice Preview'}
           </h3>
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
               onClick={handleWhatsAppShare}
               disabled={isGeneratingPdf || documentItems.length === 0}
-              className="w-full sm:w-auto px-3.5 py-2 text-xs sm:text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center justify-center font-medium"
+              className="flex-1 sm:flex-none px-3.5 py-2 text-xs sm:text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center font-medium shadow-sm"
+              title="Share document directly via WhatsApp"
             >
               {isGeneratingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <MessageCircle className="w-4 h-4 mr-2" />}
               Share to WhatsApp
             </button>
             <button
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf || documentItems.length === 0}
+              className="flex-1 sm:flex-none px-3.5 py-2 text-xs sm:text-sm bg-slate-800 text-white rounded-lg hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 transition-colors disabled:opacity-50 flex items-center justify-center font-medium shadow-sm"
+              title="Download high-resolution PDF directly"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download PDF
+            </button>
+            <button
               onClick={handlePrint}
               disabled={documentItems.length === 0}
-              className="w-full sm:w-auto px-3.5 py-2 text-xs sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center font-medium"
+              className="w-full sm:w-auto px-3.5 py-2 text-xs sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center font-medium shadow-sm"
+              title="Print document"
             >
               <Printer className="w-4 h-4 mr-2" />
               Print Document
