@@ -8,6 +8,7 @@ export interface InventoryItem {
   salesPrice: number;
   lowStockThreshold: number;
   lastUpdated: string;
+  imageUrl?: string;
 }
 
 export interface SaleItem {
@@ -17,6 +18,7 @@ export interface SaleItem {
   priceAtSale: number;
   costAtSale: number;
   discount?: number;
+  imageUrl?: string;
 }
 
 export interface SaleRecord {

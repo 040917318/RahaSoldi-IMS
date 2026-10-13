@@ -119,7 +119,8 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
             quantity: qtyInput,
             priceAtSale: selectedProduct.salesPrice,
             costAtSale: selectedProduct.costPrice,
-            discount: 0
+            discount: 0,
+            imageUrl: selectedProduct.imageUrl
         };
         setCart([...cart, newItem]);
     }
@@ -245,10 +246,16 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                         : 'border-slate-100 dark:border-slate-700 hover:border-indigo-300 bg-white dark:bg-slate-800'
                     }`}
                   >
-                    <div className="flex justify-between items-start mb-2 sm:mb-4 relative z-10">
-                       <div className="p-1.5 sm:p-2.5 bg-slate-50 dark:bg-slate-700/50 rounded-xl sm:rounded-2xl text-indigo-500 group-hover:scale-110 transition-transform">
-                          <Package className="w-4 h-4 sm:w-5 sm:h-5" />
-                       </div>
+                    <div className="flex justify-between items-start mb-2 sm:mb-3 relative z-10">
+                       {item.imageUrl ? (
+                         <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xs shrink-0 group-hover:scale-105 transition-transform">
+                           <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
+                         </div>
+                       ) : (
+                         <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-100 dark:bg-slate-700/50 rounded-xl sm:rounded-2xl flex items-center justify-center text-indigo-500 group-hover:scale-105 transition-transform shrink-0">
+                           <Package className="w-5 h-5 sm:w-7 sm:h-7" />
+                         </div>
+                       )}
                        <div className={`text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full uppercase tracking-wider sm:tracking-widest ${item.quantity > item.lowStockThreshold ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                          Stock: {item.quantity}
                        </div>
@@ -333,9 +340,16 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                   className="p-3.5 sm:p-5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl sm:rounded-3xl group relative"
                 >
                   <div className="flex justify-between items-start mb-2 sm:mb-3">
-                    <div className="flex-1 pr-2">
-                      <div className="font-bold text-slate-800 dark:text-white text-xs sm:text-base leading-tight mb-0.5">{item.name}</div>
-                      <div className="text-[10px] sm:text-sm font-black text-indigo-500/60 uppercase tracking-widest">{item.quantity} units</div>
+                    <div className="flex items-center gap-2.5 flex-1 pr-2">
+                      {item.imageUrl && (
+                        <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0">
+                          <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-bold text-slate-800 dark:text-white text-xs sm:text-base leading-tight mb-0.5">{item.name}</div>
+                        <div className="text-[10px] sm:text-sm font-black text-indigo-500/60 uppercase tracking-widest">{item.quantity} units</div>
+                      </div>
                     </div>
                     <motion.button 
                       whileHover={{ scale: 1.1, color: '#ef4444' }}
@@ -565,9 +579,15 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
               {/* Header */}
               <div className="p-3.5 sm:p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-indigo-600/10 rounded-xl text-indigo-600 dark:text-indigo-400">
-                    <Package className="w-4 h-4 sm:w-5 sm:h-5" />
-                  </div>
+                  {selectedProduct.imageUrl ? (
+                    <div className="w-11 h-11 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0 shadow-xs">
+                      <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="p-2 bg-indigo-600/10 rounded-xl text-indigo-600 dark:text-indigo-400 shrink-0">
+                      <Package className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </div>
+                  )}
                   <div>
                     <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-indigo-500 block">
                       Add To Order

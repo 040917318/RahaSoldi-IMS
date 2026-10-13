@@ -6,6 +6,17 @@ import { Auth } from './components/Auth';
 import { InventoryItem, SaleRecord, SaleItem, ViewState, ExpenseRecord, UserRole, AuditLog, PendingSale } from './types';
 import { supabase } from './services/supabaseClient';
 import { Session } from '@supabase/supabase-js';
+import { 
+  initImageCache, 
+  saveCachedImage, 
+  getCachedImageSync, 
+  removeCachedImage, 
+  mergeInventoryWithLocalCache 
+} from './services/imageCache';
+import { 
+  checkImageUrlColumnSupport, 
+  pushLocalImagesToDatabase 
+} from './services/databaseSchemaHelper';
 
 // Lazy load components for better performance
 const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })));
@@ -124,6 +135,8 @@ const App: React.FC = () => {
     } catch { return []; }
   });
   const [dbKeys, setDbKeys] = useState<{ [key: string]: string }>({});
+  const [hasDbImageSupport, setHasDbImageSupport] = useState<boolean | null>(null);
+  const [isSyncingImages, setIsSyncingImages] = useState(false);
 
   const mapToDb = (item: any, table: 'inventory' | 'sales' | 'pending_sales') => {
     if (table === 'inventory') {
@@ -146,6 +159,11 @@ const App: React.FC = () => {
 
       if (keys.lowStockThreshold) mapped[keys.lowStockThreshold] = item.lowStockThreshold;
       else mapped.low_stock_threshold = item.lowStockThreshold; // Fallback
+
+      if (item.imageUrl !== undefined) {
+        if (keys.imageUrl) mapped[keys.imageUrl] = item.imageUrl || null;
+        else mapped.image_url = item.imageUrl || null;
+      }
 
       return mapped;
     }
@@ -242,7 +260,19 @@ const App: React.FC = () => {
   useEffect(() => {
     const loadLocal = (key: string, setter: any) => {
         const local = localStorage.getItem(key);
-        if(local) setter(JSON.parse(local));
+        if(local) {
+          try {
+            const parsed = JSON.parse(local);
+            if (key === 'inventory') {
+              initImageCache(parsed);
+              setter(mergeInventoryWithLocalCache(parsed));
+            } else {
+              setter(parsed);
+            }
+          } catch (e) {
+            console.error(`Error loading cached ${key}:`, e);
+          }
+        }
     };
     loadLocal('inventory', setInventory);
     loadLocal('sales', setSales);
@@ -450,6 +480,11 @@ const App: React.FC = () => {
     
     // Fetch Inventory separately
     try {
+      // Proactively check schema image support
+      checkImageUrlColumnSupport().then(res => {
+        setHasDbImageSupport(res.hasImageUrlColumn);
+      }).catch(e => console.warn('Schema check notice:', e));
+
       const { data: invData, error: invErr } = await supabase.from('inventory').select('*').limit(1000);
       if (invErr) throw invErr;
       if (invData && invData.length > 0) {
@@ -469,11 +504,26 @@ const App: React.FC = () => {
           detected.quantity = qtyKeys.find(k => k in first) || 'quantity';
           detected.lastUpdated = updateKeys.find(k => k in first) || 'last_updated';
           
+          const imageKeys = ['image_url', 'imageUrl', 'image', 'photo_url', 'photo'];
+          detected.imageUrl = imageKeys.find(k => k in first) || 'image_url';
+          
           setDbKeys(detected);
 
           const formattedInv: InventoryItem[] = invData.map((i: any) => {
               const costPrice = Number(i[detected.costPrice] ?? 0);
               const salesPrice = Number(i[detected.salesPrice] ?? 0);
+              const dbImg = i[detected.imageUrl] || i.image_url || i.imageUrl || i.image;
+              
+              // Resilient local cache merge: if DB doesn't have an image, preserve existing local cached image
+              const cachedImg = getCachedImageSync(i.id);
+              const finalImg = (typeof dbImg === 'string' && dbImg.trim().length > 0)
+                ? dbImg
+                : cachedImg;
+
+              if (finalImg && i.id) {
+                saveCachedImage(i.id, finalImg);
+              }
+
               return {
                   id: i.id,
                   name: i.name,
@@ -482,11 +532,13 @@ const App: React.FC = () => {
                   costPrice: isNaN(costPrice) ? 0 : costPrice,
                   salesPrice: isNaN(salesPrice) ? 0 : salesPrice,
                   lowStockThreshold: Number(i[detected.lowStockThreshold] ?? 5),
-                  lastUpdated: i[detected.lastUpdated] ?? new Date().toISOString()
+                  lastUpdated: i[detected.lastUpdated] ?? new Date().toISOString(),
+                  imageUrl: finalImg || undefined
               };
           });
-          setInventory(formattedInv);
-          persist('inventory', formattedInv);
+          const mergedInv = mergeInventoryWithLocalCache(formattedInv);
+          setInventory(mergedInv);
+          persist('inventory', mergedInv);
       } else if (invData) {
           setInventory([]);
           persist('inventory', []);
@@ -574,6 +626,11 @@ const App: React.FC = () => {
       lastUpdated: new Date().toISOString()
     };
 
+    // Cache image locally immediately so it is NEVER lost
+    if (newItem.imageUrl) {
+      saveCachedImage(newItem.id, newItem.imageUrl);
+    }
+
     const newInventory = [...inventory, newItem];
     setInventory(newInventory);
     persist('inventory', newInventory);
@@ -586,14 +643,24 @@ const App: React.FC = () => {
 
     try {
       const dbItem = mapToDb(newItem, 'inventory');
-      const { error } = await supabase.from('inventory').insert([dbItem]);
+      let { error } = await supabase.from('inventory').insert([dbItem]);
+      // If remote table doesn't have image_url column yet, retry without it
+      if (error && (error.message?.includes('image_url') || error.message?.includes('imageUrl') || error.code === 'PGRST204')) {
+        setHasDbImageSupport(false);
+        const { image_url, imageUrl, ...fallbackDbItem } = dbItem;
+        const retry = await supabase.from('inventory').insert([fallbackDbItem]);
+        error = retry.error;
+      } else if (!error && newItem.imageUrl) {
+        setHasDbImageSupport(true);
+      }
+
       if (error) {
           console.error("Error adding item to DB:", error);
-          setFetchError(`Database error: ${error.message}. Changes saved locally only.`);
+          setFetchError(`Database sync notice: ${error.message}. Product & image preserved locally.`);
       }
     } catch (err: any) {
       console.error("Fatal error adding item:", err);
-      setFetchError(`Connection error: ${err.message}. Changes saved locally only.`);
+      setFetchError(`Connection notice: ${err.message}. Saved locally.`);
     }
   };
 
@@ -604,6 +671,13 @@ const App: React.FC = () => {
     const updatedTimestamp = new Date().toISOString();
     const finalUpdates = { ...updates, lastUpdated: updatedTimestamp };
 
+    // Update local image cache immediately
+    if (updates.imageUrl) {
+      saveCachedImage(id, updates.imageUrl);
+    } else if (updates.imageUrl === null || updates.imageUrl === '') {
+      removeCachedImage(id);
+    }
+
     const payload: any = {};
     if (updates.name !== undefined) payload.name = updates.name;
     if (updates.category !== undefined) payload.category = updates.category;
@@ -611,6 +685,7 @@ const App: React.FC = () => {
     if (updates.costPrice !== undefined) payload[dbKeys.costPrice || 'cost_price'] = updates.costPrice;
     if (updates.salesPrice !== undefined) payload[dbKeys.salesPrice || 'sales_price'] = updates.salesPrice;
     if (updates.lowStockThreshold !== undefined) payload[dbKeys.lowStockThreshold || 'low_stock_threshold'] = updates.lowStockThreshold;
+    if (updates.imageUrl !== undefined) payload[dbKeys.imageUrl || 'image_url'] = updates.imageUrl || null;
     payload[dbKeys.lastUpdated || 'last_updated'] = updatedTimestamp;
 
     if (updates.quantity !== undefined && updates.quantity !== oldItem.quantity) {
@@ -628,19 +703,30 @@ const App: React.FC = () => {
     }
 
     try {
-      const { error } = await supabase.from('inventory').update(payload).eq('id', id);
+      let { error } = await supabase.from('inventory').update(payload).eq('id', id);
+      // If remote table doesn't have image_url column yet, retry without it
+      if (error && (error.message?.includes('image_url') || error.message?.includes('imageUrl') || error.code === 'PGRST204')) {
+        setHasDbImageSupport(false);
+        const { image_url, imageUrl, ...fallbackPayload } = payload;
+        const retry = await supabase.from('inventory').update(fallbackPayload).eq('id', id);
+        error = retry.error;
+      } else if (!error && updates.imageUrl) {
+        setHasDbImageSupport(true);
+      }
+
       if (error) {
            console.error("Error updating item in DB:", error);
-           setFetchError(`Update failed in cloud: ${error.message}. Local state is correct.`);
+           setFetchError(`Cloud update: ${error.message}. Local changes & photo are intact.`);
       }
     } catch (err: any) {
       console.error("Fatal error updating item:", err);
-      setFetchError(`Cloud sync failed: ${err.message}`);
+      setFetchError(`Cloud sync: ${err.message}`);
     }
   };
 
   const handleDeleteItem = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this item?')) {
+      removeCachedImage(id);
       const updatedInventory = inventory.filter(item => item.id !== id);
       setInventory(updatedInventory);
       persist('inventory', updatedInventory);
@@ -656,6 +742,26 @@ const App: React.FC = () => {
       } catch (err) {
         console.error("Error deleting item:", err);
       }
+    }
+  };
+
+  const handleRecheckDbSchema = async () => {
+    const res = await checkImageUrlColumnSupport();
+    setHasDbImageSupport(res.hasImageUrlColumn);
+    return res;
+  };
+
+  const handlePushImagesToCloud = async () => {
+    setIsSyncingImages(true);
+    try {
+      const res = await pushLocalImagesToDatabase(inventory);
+      if (res.syncedCount > 0) {
+        setHasDbImageSupport(true);
+        fetchData();
+      }
+      return res;
+    } finally {
+      setIsSyncingImages(false);
     }
   };
 
@@ -1284,7 +1390,21 @@ const App: React.FC = () => {
                   </div>
                 }>
                      {activeView === 'dashboard' && <Dashboard inventory={inventory} sales={sales} pendingSales={pendingSales} auditLogs={auditLogs} currencySymbol="GH₵" userRole={userRole} />}
-                    {activeView === 'inventory' && <InventoryManager inventory={inventory} onAdd={handleAddItem} onUpdate={handleUpdateItem} onDelete={handleDeleteItem} currencySymbol="GH₵" userRole={userRole} auditLogs={auditLogs} />}
+                     {activeView === 'inventory' && (
+                       <InventoryManager 
+                         inventory={inventory} 
+                         onAdd={handleAddItem} 
+                         onUpdate={handleUpdateItem} 
+                         onDelete={handleDeleteItem} 
+                         currencySymbol="GH₵" 
+                         userRole={userRole} 
+                         auditLogs={auditLogs}
+                         hasDbImageSupport={hasDbImageSupport}
+                         onRecheckDbSchema={handleRecheckDbSchema}
+                         onPushImagesToCloud={handlePushImagesToCloud}
+                         isSyncingImages={isSyncingImages}
+                       />
+                     )}
                     {activeView === 'pos' && <SalesTerminal inventory={inventory} onCompleteSale={handleCompleteSale} onDeferSale={handleDeferSale} currencySymbol="GH₵" />}
                     {activeView === 'pending' && <PendingSalesManager pendingSales={pendingSales} onComplete={handleCompletePendingSale} onCancel={handleCancelPendingSale} currencySymbol="GH₵" />}
                     {activeView === 'history' && <SalesHistory sales={sales} pendingSales={pendingSales} currencySymbol="GH₵" />}
