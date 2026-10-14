@@ -195,7 +195,10 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
     };
     
     const startDate = getStartDate();
-    const fSales = allSalesCombined.filter(s => new Date(s.timestamp) >= startDate);
+    const fSales = allSalesCombined.filter(s => {
+      const d = s.timestamp ? new Date(s.timestamp) : new Date(0);
+      return !isNaN(d.getTime()) && d >= startDate;
+    });
     const fExpenses = expenses.filter(e => new Date(e.date) >= startDate);
     
     return { filteredSales: fSales, filteredExpenses: fExpenses };
@@ -204,7 +207,7 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
   // Aggregate daily timeline aggregates for Recharts charts
   const chartData = useMemo(() => {
     const dataMap = new Map<string, { date: string; revenue: number; cogs: number; grossProfit: number; expenses: number; netIncome: number }>();
-    const getDateKey = (dateStr: string) => dateStr.split('T')[0];
+    const getDateKey = (dateStr?: string) => (dateStr || new Date().toISOString()).split('T')[0];
 
     // Sparse aggregation setup
     filteredSales.forEach(sale => {
@@ -213,11 +216,11 @@ export const FinancialReport: React.FC<FinancialReportProps> = ({ inventory, sal
         dataMap.set(key, { date: key, revenue: 0, cogs: 0, grossProfit: 0, expenses: 0, netIncome: 0 });
       }
       const current = dataMap.get(key)!;
-      current.revenue += sale.totalAmount;
-      current.grossProfit += sale.totalProfit;
-      const saleCogs = Math.max(0, sale.totalAmount - sale.totalProfit);
+      current.revenue += (Number(sale.totalAmount) || 0);
+      current.grossProfit += (Number(sale.totalProfit) || 0);
+      const saleCogs = Math.max(0, (Number(sale.totalAmount) || 0) - (Number(sale.totalProfit) || 0));
       current.cogs += saleCogs;
-      current.netIncome += sale.totalProfit;
+      current.netIncome += (Number(sale.totalProfit) || 0);
     });
 
     filteredExpenses.forEach(exp => {

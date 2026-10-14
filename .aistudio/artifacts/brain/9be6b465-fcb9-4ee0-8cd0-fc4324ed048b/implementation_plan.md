@@ -1,116 +1,122 @@
-# Persistent Database Product Image Storage & Cloud Synchronization
+# Inventory Deletion Fix, Sales Terminal Feedback & Smart Image Compression
 
-Store product images directly in the Supabase `inventory` table and synchronize seamlessly across devices, with intelligent schema detection, automated migration guidance, and resilient local-to-cloud cache merging so photos are never lost upon reload.
+Comprehensive resolution for the inventory item deletion failure, sales terminal checkout processing feedback, and client-side image compression for product uploads.
 
-## User Review & Critical Decisions
+### User Review & Critical Decisions
 
 > [!IMPORTANT]
-> The following architectural decisions were confirmed in Phase 1:
-> - **Storage Destination**: Directly in the `inventory` table column (`image_url` TEXT) in Supabase.
-> - **Cache & Sync Strategy**: Merge database rows with local cache during load so existing product photos are never overwritten with null values if remote sync is in progress or column is freshly created.
-> - **Schema Migration & Safety**: If the remote Supabase database table does not yet have the `image_url` column, provide an automated SQL command / migration banner in the UI so the store manager can run `ALTER TABLE inventory ADD COLUMN IF NOT EXISTS image_url TEXT;` with 1 click, while retaining all photos safely in persistent client storage (IndexedDB / LocalStorage) in the meantime.
+> The following architectural and user experience choices were confirmed during Phase 1:
+> - **Product Deletion Flow**: Instant deletion with an Undo toast notification (replaces blocked native `window.confirm` dialogs in the sandbox iframe).
+> - **Sales Terminal Loading & Feedback**: Inline button spinner during checkout processing with a compact bottom banner toast communicating real-time transaction status (processing, success with receipt metadata, or error).
+> - **Image Upload Compression**: Automatic client-side smart compression with an optional quality toggle (Standard vs. High Quality) and visible file reduction telemetry (e.g., `3.8 MB → 190 KB`).
 
 ---
 
-## 1. Overview & Core Concept
+### 1. Overview & Core Concept
 
-When adding or updating products in the Inventory Manager, users upload or photograph product images. Previously, if the remote Supabase table schema didn't have the `image_url` column configured, the app fell back to stripping the image during database insert/update, causing subsequent database fetches (`loadDataFromSupabase`) to overwrite the local state and make images disappear on reload.
-
-This feature ensures:
-1. **Direct Database Persistence**: Images are saved in the `image_url` column of the `inventory` table in Supabase.
-2. **Defensive Cache Merging**: When fetching from Supabase, if a remote record has no image or an empty string, any existing high-resolution locally saved image for that product ID is preserved rather than overwritten with `undefined`.
-3. **Database Schema Helper & Status**: The app detects whether `image_url` is supported by Supabase. If missing, it alerts the user with a clean, copyable SQL migration snippet and status indicator, without interrupting store operations.
-4. **Reliable Storage Engine**: Compressed images are persisted via an IndexedDB-backed storage helper alongside localStorage to avoid hitting browser 5MB localStorage quota limits.
+This update addresses three key user workflow bottlenecks in the POS & Inventory application:
+1. **Unblocking Product Deletion**: In sandboxed browser iframes, native dialogs like `window.confirm` fail silently or are suppressed, rendering the inventory delete button completely non-functional. Replacing this with an instant deletion pattern backed by a 6-second "Undo" toast provides a seamless, non-blocking administrative experience.
+2. **Sales Terminal Transaction Reliability & Feedback**: Checkout currently lacks visual confirmation of saving, leading to duplicate clicks or uncertainty. Adding an inline button spinner and a compact bottom banner toast delivers immediate tactile confirmation that transactions have been logged.
+3. **Memory Optimization via Smart Image Compression**: Product photos captured via camera or uploaded directly from mobile/desktop cameras often exceed 4–10 MB each, causing browser storage saturation and sluggish UI rendering. Client-side canvas compression automatically shrinks image payloads to under 250 KB without perceptible visual loss, featuring a simple quality toggle.
 
 ---
 
-## 2. User Experience & Visual Design
+### 2. User Experience & Visual Design
 
-### Key User Flows
+#### Key User Flows
 
-1. **Add / Edit Product with Image**:
-   - User snaps a photo or uploads an image file in the Inventory Manager modal.
-   - The image is compressed into an optimized JPEG string (~30–50KB).
-   - Upon clicking "Save Product", the item is saved to local persistent storage immediately and sent to Supabase with the `image_url` field populated.
-2. **App Reload & Cross-Session Access**:
-   - On page refresh or new session login, `loadDataFromSupabase` queries `inventory`.
-   - The merge logic combines remote fields (prices, stock quantities, updates) with locally cached images. Even if the remote database column is still being created or empty, the product photo remains visible in the inventory list, cards, and POS terminal.
-3. **Database Schema Readiness Indicator**:
-   - In the Settings or Database status section, an indicator displays "Product Image Column: Synced & Ready".
-   - If Supabase rejects `image_url` due to missing schema column, an unobtrusive banner with a one-click "Copy SQL Query" button is displayed:
-     ```sql
-     ALTER TABLE inventory ADD COLUMN IF NOT EXISTS image_url TEXT;
-     ```
-   - Once executed in the Supabase SQL editor, the app detects the column and immediately syncs all cached local images to the database.
+1. **Inventory Deletion & Undo**:
+   - User navigates to the Inventory tab and clicks the trash/delete icon on any product row (or mobile card).
+   - The product is immediately removed from the active table view with a soft fade-and-collapse animation.
+   - A floating toast appears at the bottom-right: *"Product '[Name]' deleted"* with a prominent **Undo** button and a subtle 6-second progress bar.
+   - If **Undo** is clicked, the product returns immediately to its original position without reloading.
+   - If the timer lapses or the user closes the toast, deletion is permanently committed.
 
-### Visual Identity & Theme
-- **Theme Consistency**: Matches existing deep navy/indigo palette (`#4F46E5`, `#0F172A`), dark mode support, and clean utilitarian POS layout.
-- **Micro-Interactions**: Sync badge transitions smoothly between "Synced", "Syncing...", and "Local Cache Protected".
-- **Zero-Pill Restraint**: Status badges use crisp typographical layout and subtle icons without bloated pill wraps.
+2. **Sales Terminal Checkout Processing**:
+   - Cashier builds a cart in the Sales Terminal and clicks **Complete Sale**.
+   - The button instantly disables and shows a spinning indicator with label *"Processing..."*.
+   - A compact, polished bottom banner toast animates up with a gentle pulse: *"Saving transaction..."*.
+   - Once saved (600ms realistic async save), the bottom banner turns to emerald green with an animated checkmark: *"Transaction #TX-XXXX completed · [Total Amount]"*.
+   - The cart resets, and the cashier can immediately begin the next sale while the confirmation remains briefly visible.
 
----
+3. **Smart Image Upload & Compression**:
+   - In the Add/Edit Product modal, user uploads an image or captures one via webcam.
+   - Automatic compression runs instantly in a Web Worker / Canvas pipeline.
+   - A compact metadata bar shows: *"Original: 3.4 MB → Compressed: 185 KB (95% smaller)"*.
+   - A subtle Quality switch allows toggling between **Standard (Balanced)** and **High Fidelity (Max Clarity)**.
 
-## 3. Key Product Decisions & Trade-Offs
-
-### Decision 1: Direct Table Column Storage vs. Object Storage Bucket
-- **Chosen Approach**: Direct `image_url TEXT` column on `inventory` storing optimized base64 or hosted URLs.
-- **Why**: Eliminates the need for configuring Supabase Storage bucket RLS policies, public access permissions, and multi-part upload handlers. At ~30-50KB per compressed JPEG, standard PostgreSQL TEXT columns handle thousands of inventory items effortlessly.
-- **Alternative Considered**: Supabase Storage Buckets. Required bucket creation, storage quotas, and complex RLS setups that could fail if credentials lack bucket admin privileges.
-
-### Decision 2: Cache Merging Protocol
-- **Chosen Approach**: Two-way resilient merge. If `invData` from Supabase has a valid `imageUrl`, it takes precedence; if remote is null/empty but local cache has an image, keep the local image and schedule a background upsert to heal the database.
-- **Why**: Prevents accidental data wipeouts on app refresh or network hiccups.
-
-### Decision 3: IndexedDB Storage Fallback
-- **Chosen Approach**: Hybrid IndexedDB + LocalStorage storage adapter for product photos.
-- **Why**: Browser `localStorage` has a strict ~5MB limit across the entire origin. For stores with 50+ photographed items, base64 strings could exceed this limit. IndexedDB provides hundreds of megabytes of reliable offline storage.
+#### Visual Identity & Theme
+- **Color Tokens**:
+  - Background: Clean neutral canvas (`bg-neutral-50` / `dark:bg-neutral-900`)
+  - Accent / Primary: Deep indigo/blue (`bg-indigo-600` / `hover:bg-indigo-700`)
+  - Status Success: Emerald (`text-emerald-700 bg-emerald-50 border-emerald-200`)
+  - Status Alert/Undo: Charcoal with amber/emerald accents (`bg-neutral-900 text-white`)
+- **Typography**: Clean sans (`Plus Jakarta Sans` / `DM Sans`), with strict tabular numerals (`font-mono tabular-nums`) for currency amounts and file size badges.
+- **Zero-Pill Restraint**: File statistics, prices, and status messages presented with clean typographic separators and subtle borders, avoiding bubbly pill clutter.
 
 ---
 
-## 4. Technical Architecture & Data Strategy
+### 3. Key Product Decisions & Trade-Offs
 
-### System Architecture Diagram
+- **Instant Deletion with Undo Toast vs. Confirmation Modal**:
+  - *Chosen*: Instant deletion with an Undo toast.
+  - *Why*: Eliminates friction for inventory managers managing multiple products while guaranteeing recovery for accidental clicks; completely bypasses iframe sandbox restrictions that broke `window.confirm`.
+  - *Alternative Rejected*: Standard pop-up modal requiring extra clicks on every single item deletion.
+
+- **Bottom Banner Toast vs. Fullscreen Overlay**:
+  - *Chosen*: Compact bottom banner toast with inline button spinner.
+  - *Why*: Fullscreen loading overlays lock the entire viewport and feel heavy-handed for sub-second POS transactions. The bottom banner communicates state clearly while keeping the register responsive.
+  - *Alternative Rejected*: Full-screen modal spinner.
+
+- **Client-Side Canvas/WebP Compression vs. Uncompressed Upload**:
+  - *Chosen*: Automatic client-side Canvas compression with standard fallback (JPEG/WebP) and optional high-quality toggle.
+  - *Why*: Storing multi-megabyte base64 strings in browser storage (`localStorage` / IndexedDB) quickly throws `QuotaExceededError`. Compressing at ingestion keeps total application memory footprint lightweight and avoids white screens.
+
+---
+
+### 4. Technical Architecture & Data Strategy
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Client Web App                          │
-│                                                             │
-│  ┌───────────────────────┐       ┌───────────────────────┐  │
-│  │   Inventory Manager   │       │   Sales POS Terminal  │  │
-│  │ (Upload / Camera UI)  │       │ (Grid & Cart Preview) │  │
-│  └───────────┬───────────┘       └───────────┬───────────┘  │
-│              │                               │              │
-│              ▼                               ▼              │
+│                       App Container                         │
 │  ┌───────────────────────────────────────────────────────┐  │
-│  │            Inventory State & Image Store              │  │
-│  │  - Optimistic Local UI Update                         │  │
-│  │  - IndexedDB / LocalStorage Persistent Cache          │  │
-│  │  - Merge Resolver (Remote ↔ Local)                    │  │
-│  └───────────┬───────────────────────────────▲───────────┘  │
-└──────────────┼───────────────────────────────┼──────────────┘
-               │                               │
-        Insert / Update                 Fetch on load
-               │                               │
-               ▼                               │
-┌──────────────────────────────────────────────┴──────────────┐
-│                    Supabase Database                        │
-│                                                             │
-│  Table: `inventory`                                         │
-│  Columns: id, name, category, quantity, cost_price,         │
-│           sales_price, low_stock_threshold, last_updated,   │
-│           image_url (TEXT)                                  │
+│  │  State: inventory, cart, transactions, undoQueue      │  │
+│  └───────────────────────────┬───────────────────────────┘  │
+│                              │                              │
+│       ┌──────────────────────┴──────────────────────┐       │
+│       ▼                                             ▼       │
+│  ┌─────────────────────────┐          ┌──────────────────┐  │
+│  │   InventoryManager      │          │   SalesTerminal  │  │
+│  │  - Instant delete trigger│         │  - Checkout flow │  │
+│  │  - Item edit & add      │          │  - Inline spinner│  │
+│  │  - ProductImageCapture  │          │  - Bottom toast  │  │
+│  └────────────┬────────────┘          └─────────┬────────┘  │
+│               │                                 │           │
+│               ▼                                 ▼           │
+│  ┌─────────────────────────┐          ┌──────────────────┐  │
+│  │ Image Compressor Engine │          │  Toast Feedback  │  │
+│  │ - Canvas downsampling   │          │  - Undo product  │  │
+│  │ - 85% / 95% quality     │          │  - TX success    │  │
+│  │ - Size delta telemetry  │          │  - TX failure    │  │
+│  └─────────────────────────┘          └──────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Data Flow & Handlers
-1. **`App.tsx` (`loadDataFromSupabase`)**:
-   - Fetches `inventory` from Supabase.
-   - Merges remote items with existing state:
-     `imageUrl: (remoteImg && remoteImg.trim() !== '') ? remoteImg : (existingLocalItem?.imageUrl || undefined)`
-   - Stores merged list into persistent cache.
-2. **`App.tsx` (`handleAddProduct` & `handleUpdateItem`)**:
-   - Sends payload including `image_url: item.imageUrl`.
-   - On success, marks item as synced.
-   - If Supabase returns schema error `column "image_url" does not exist`, retains image in local persistent store, triggers the schema helper notice, and retries the core product fields without failing the user's action.
-3. **Database Schema Guide Modal / Component**:
-   - Provides clear instructions and copy button for the exact SQL statement if the user's Supabase instance requires column creation.
+#### Component & State Implementation Details
+
+1. **`App.tsx` & `InventoryManager.tsx` (Delete Fix & Undo)**:
+   - Remove `window.confirm` entirely.
+   - Maintain a temporary `pendingDeletion` state with a 6-second timeout.
+   - Render a fixed bottom Toast container with an "Undo" action button.
+   - If Undo is triggered, cancel the timeout and restore the item immediately.
+
+2. **`SalesTerminal.tsx` (Checkout Loading & Feedback)**:
+   - Add `isProcessingSale: boolean` state.
+   - On clicking complete sale, set `isProcessingSale = true`, trigger an async transaction simulation (600ms) to ensure state commits.
+   - Display inline SVG spinner inside the checkout button.
+   - Render a smooth bottom banner toast showing processing progress, transitioning to emerald success or rose error.
+
+3. **`utils/imageCompressor.ts` & `components/ProductImageCapture.tsx` (Smart Compression)**:
+   - Enhance the image compression utility to accept quality modes (`standard`: 800px max, 0.78 quality vs. `high`: 1200px max, 0.88 quality).
+   - Return original file size, compressed file size, and percentage saved.
+   - Add an inline quality toggle in `ProductImageCapture` and display compression telemetry.

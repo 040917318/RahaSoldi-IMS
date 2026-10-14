@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { SaleRecord, PendingSale } from '../types';
 import { Search, Eye, FileText, X, ArrowUpCircle, Calendar, ChevronRight, Filter, Download, ArrowUpDown, Printer, Clock } from 'lucide-react';
+import { getCachedImageSync } from '../services/imageCache';
 
 interface SalesHistoryProps {
   sales: SaleRecord[];
@@ -17,14 +18,31 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
   const [selectedSale, setSelectedSale] = useState<any | null>(null);
 
   const combinedSales = useMemo(() => {
-    const mappedPending = pendingSales.map(ps => ({
+    const normalizeItems = (items: any) => {
+      if (Array.isArray(items)) return items;
+      if (typeof items === 'string') {
+        try {
+          const parsed = JSON.parse(items);
+          if (Array.isArray(parsed)) return parsed;
+        } catch {}
+      }
+      return [];
+    };
+
+    const mappedPending = (pendingSales || []).map(ps => ({
       ...ps,
+      items: normalizeItems(ps.items),
+      totalAmount: Number(ps.totalAmount) || 0,
+      totalProfit: Number(ps.totalProfit) || 0,
       status: 'pending' as const,
       isPending: true
     }));
     
-    const mappedCompleted = sales.map(s => ({
+    const mappedCompleted = (sales || []).map(s => ({
       ...s,
+      items: normalizeItems(s.items),
+      totalAmount: Number(s.totalAmount) || 0,
+      totalProfit: Number(s.totalProfit) || 0,
       status: 'completed' as const,
       isPending: false
     }));
@@ -35,48 +53,55 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
   const filteredSales = useMemo(() => {
     return combinedSales.filter(sale => {
       // Search term filter (check if any item name, Sale ID or recordedBy matches)
-      const term = searchTerm.toLowerCase();
+      const term = (searchTerm || '').trim().toLowerCase();
+      const itemsList = Array.isArray(sale.items) ? sale.items : [];
       const matchesSearch = 
-        searchTerm === '' || 
-        sale.items.some(item => item.name.toLowerCase().includes(term)) ||
-        sale.id.toLowerCase().includes(term) ||
-        (('customerName' in sale) && (sale as any).customerName?.toLowerCase().includes(term)) ||
-        (sale.recordedBy && sale.recordedBy.toLowerCase().includes(term));
+        term === '' || 
+        itemsList.some((item: any) => (item?.name || '').toLowerCase().includes(term)) ||
+        (sale.id || '').toLowerCase().includes(term) ||
+        (('customerName' in sale) && String((sale as any).customerName || '').toLowerCase().includes(term)) ||
+        (sale.recordedBy && String(sale.recordedBy).toLowerCase().includes(term));
 
       // Date range filter
       let matchesDate = true;
-      if (startDate) {
-        // Reset time to start of day for accurate comparison
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        matchesDate = matchesDate && new Date(sale.timestamp) >= start;
-      }
-      if (endDate) {
-        // Set end date to end of day
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        matchesDate = matchesDate && new Date(sale.timestamp) <= end;
+      const saleDate = sale.timestamp ? new Date(sale.timestamp) : new Date();
+      if (!isNaN(saleDate.getTime())) {
+        if (startDate) {
+          const start = new Date(startDate);
+          start.setHours(0, 0, 0, 0);
+          matchesDate = matchesDate && saleDate >= start;
+        }
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          matchesDate = matchesDate && saleDate <= end;
+        }
       }
 
       return matchesSearch && matchesDate;
     }).sort((a, b) => {
+        const timeA = new Date(a.timestamp || 0).getTime();
+        const timeB = new Date(b.timestamp || 0).getTime();
         switch(sortBy) {
-            case 'date-asc': return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
-            case 'amount-desc': return b.totalAmount - a.totalAmount;
-            case 'amount-asc': return a.totalAmount - b.totalAmount;
+            case 'date-asc': return timeA - timeB;
+            case 'amount-desc': return (Number(b.totalAmount) || 0) - (Number(a.totalAmount) || 0);
+            case 'amount-asc': return (Number(a.totalAmount) || 0) - (Number(b.totalAmount) || 0);
             case 'date-desc': 
             default:
-                return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+                return timeB - timeA;
         }
     });
   }, [combinedSales, searchTerm, startDate, endDate, sortBy]);
 
-  const totalRevenue = filteredSales.reduce((acc, sale) => acc + sale.totalAmount, 0);
-  const totalProfit = filteredSales.reduce((acc, sale) => acc + sale.totalProfit, 0);
+  const totalRevenue = filteredSales.reduce((acc, sale) => acc + (Number(sale.totalAmount) || 0), 0);
+  const totalProfit = filteredSales.reduce((acc, sale) => acc + (Number(sale.totalProfit) || 0), 0);
 
-  // Helper to format date
-  const formatDate = (isoString: string) => {
-    return new Date(isoString).toLocaleString('en-GB', {
+  // Safe helper to format date
+  const formatDate = (isoString?: string) => {
+    if (!isoString) return 'N/A';
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return 'N/A';
+    return d.toLocaleString('en-GB', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
@@ -116,15 +141,20 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
   };
 
   const handleExportCSV = () => {
-    const headers = ['Date', 'Transaction ID', 'Recorded By', 'Items', 'Total Amount', 'Total Profit'];
-    const rows = filteredSales.map(s => [
-        new Date(s.timestamp).toLocaleString(),
-        s.id,
+    const headers = ['Date', 'Transaction ID', 'Status', 'Recorded By', 'Items', 'Total Amount', 'Total Profit'];
+    const rows = filteredSales.map(s => {
+      const items = Array.isArray(s.items) ? s.items : [];
+      const itemsText = items.map(i => `${Number(i.quantity) || 1}x ${i.name || 'Item'}`).join(', ');
+      return [
+        s.timestamp ? new Date(s.timestamp).toLocaleString() : 'N/A',
+        s.id || '',
+        s.isPending ? 'Pending' : 'Completed',
         s.recordedBy || 'N/A',
-        `"${s.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}"`,
-        s.totalAmount.toFixed(2),
-        s.totalProfit.toFixed(2)
-    ]);
+        `"${itemsText.replace(/"/g, '""')}"`,
+        (Number(s.totalAmount) || 0).toFixed(2),
+        (Number(s.totalProfit) || 0).toFixed(2)
+      ];
+    });
 
     const csvContent = [
         headers.join(','),
@@ -267,17 +297,22 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-800 dark:text-slate-100">
                             <div className="flex items-center gap-2">
-                                <div className="font-medium">{sale.items[0]?.name} {sale.items.length > 1 && `+ ${sale.items.length - 1} others`}</div>
+                                <div className="font-medium">
+                                  {(Array.isArray(sale.items) && sale.items[0]?.name) || 'Transaction Item'} 
+                                  {Array.isArray(sale.items) && sale.items.length > 1 && ` + ${sale.items.length - 1} others`}
+                                </div>
                                 {sale.isPending && (
                                     <span className="flex items-center px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-bold uppercase">
                                         <Clock className="w-3 h-3 mr-1" /> Pending
                                     </span>
                                 )}
                             </div>
-                            <div className="text-xs text-slate-500 dark:text-slate-400">{sale.items.reduce((sum: number, i: any) => sum + i.quantity, 0)} items total</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
+                              {Array.isArray(sale.items) ? sale.items.reduce((sum: number, i: any) => sum + (Number(i?.quantity) || 0), 0) : 0} items total
+                            </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800 dark:text-slate-100">
-                            {currencySymbol}{sale.totalAmount.toFixed(2)}
+                            {currencySymbol}{(Number(sale.totalAmount) || 0).toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                             <button 
@@ -291,7 +326,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
                 ))}
                 {filteredSales.length === 0 && (
                     <tr>
-                        <td colSpan={4} className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
+                        <td colSpan={5} className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
                             No sales records found matching your filters.
                         </td>
                     </tr>
@@ -317,14 +352,14 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
                         <span className="ml-2 italic opacity-75">({sale.recordedBy || 'N/A'})</span>
                     </span>
                     <span className="font-bold text-slate-800 dark:text-slate-100 text-lg">
-                        {currencySymbol}{sale.totalAmount.toFixed(2)}
+                        {currencySymbol}{(Number(sale.totalAmount) || 0).toFixed(2)}
                     </span>
                 </div>
                 <div className="mb-3">
                     <div className="font-medium text-slate-800 dark:text-slate-100 text-sm">
-                        {sale.items[0]?.name}
+                        {(Array.isArray(sale.items) && sale.items[0]?.name) || 'Transaction Item'}
                     </div>
-                    {sale.items.length > 1 && (
+                    {Array.isArray(sale.items) && sale.items.length > 1 && (
                         <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                             + {sale.items.length - 1} other items
                         </div>
@@ -337,7 +372,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
                 </div>
                 <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-slate-700/50">
                     <span className="text-xs text-slate-400">
-                        {sale.items.reduce((sum, i) => sum + i.quantity, 0)} items
+                        {Array.isArray(sale.items) ? sale.items.reduce((sum: number, i: any) => sum + (Number(i?.quantity) || 0), 0) : 0} items
                     </span>
                     <div className="flex items-center space-x-4">
                         <button className="bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center border border-indigo-100 dark:border-indigo-500/20">
@@ -381,12 +416,12 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
                         <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-3 sm:p-4 rounded-xl text-white shadow-lg shadow-indigo-500/20 relative overflow-hidden group">
                            <div className="absolute top-0 right-0 w-12 h-12 sm:w-16 sm:h-16 bg-white/10 rounded-full -mr-6 -mt-6 sm:-mr-8 sm:-mt-8 transition-transform group-hover:scale-110" />
                            <span className="text-[9px] sm:text-[10px] uppercase font-black tracking-wider opacity-80 block mb-0.5 sm:mb-1">Total Amount</span>
-                           <span className="text-lg sm:text-2xl font-black tracking-tight drop-shadow-md break-all">{currencySymbol}{selectedSale.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                           <span className="text-lg sm:text-2xl font-black tracking-tight drop-shadow-md break-all">{currencySymbol}{(Number(selectedSale.totalAmount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
                         <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-3 sm:p-4 rounded-xl text-white shadow-lg shadow-emerald-500/20 relative overflow-hidden group">
                            <div className="absolute top-0 right-0 w-12 h-12 sm:w-16 sm:h-16 bg-white/10 rounded-full -mr-6 -mt-6 sm:-mr-8 sm:-mt-8 transition-transform group-hover:scale-110" />
                            <span className="text-[9px] sm:text-[10px] uppercase font-black tracking-wider opacity-80 block mb-0.5 sm:mb-1">Net Profit</span>
-                           <span className="text-lg sm:text-2xl font-black tracking-tight drop-shadow-md break-all">{currencySymbol}{selectedSale.totalProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                           <span className="text-lg sm:text-2xl font-black tracking-tight drop-shadow-md break-all">{currencySymbol}{(Number(selectedSale.totalProfit) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
                     </div>
 
@@ -426,19 +461,36 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ sales, pendingSales,
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 bg-white dark:bg-slate-800 text-[11px] sm:text-xs">
-                                    {selectedSale.items.map((item: any, idx: number) => (
-                                        <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                                            <td className="px-2.5 sm:px-3 py-2 font-semibold text-slate-800 dark:text-slate-100 max-w-[110px] sm:max-w-none break-words">
-                                                {item.name}
-                                                {item.discount > 0 && <span className="block text-[9px] text-rose-500 font-bold">Disc: -{currencySymbol}{item.discount}</span>}
-                                            </td>
-                                            <td className="px-1.5 sm:px-3 py-2 text-slate-500 dark:text-slate-400 text-right whitespace-nowrap">{currencySymbol}{item.priceAtSale.toFixed(2)}</td>
-                                            <td className="px-1.5 sm:px-2 py-2 text-slate-600 dark:text-slate-300 text-right font-bold whitespace-nowrap">x{item.quantity}</td>
-                                            <td className="px-2.5 sm:px-3 py-2 text-slate-800 dark:text-slate-100 font-black text-right whitespace-nowrap">
-                                                {currencySymbol}{((item.quantity * item.priceAtSale) - (item.discount || 0)).toFixed(2)}
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {(Array.isArray(selectedSale.items) ? selectedSale.items : []).map((item: any, idx: number) => {
+                                        const qty = Number(item.quantity) || 1;
+                                        const price = Number(item.priceAtSale) || 0;
+                                        const disc = Number(item.discount) || 0;
+                                        const total = (qty * price) - disc;
+                                        const itemImg = item.imageUrl || (item.itemId ? getCachedImageSync(item.itemId) : undefined);
+
+                                        return (
+                                          <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                                              <td className="px-2.5 sm:px-3 py-2 font-semibold text-slate-800 dark:text-slate-100 max-w-[130px] sm:max-w-none break-words">
+                                                  <div className="flex items-center gap-2">
+                                                    {itemImg && (
+                                                      <div className="w-6 h-6 rounded-md overflow-hidden bg-slate-100 dark:bg-slate-700 shrink-0 border border-slate-200 dark:border-slate-600">
+                                                        <img src={itemImg} alt={item.name} className="w-full h-full object-cover" />
+                                                      </div>
+                                                    )}
+                                                    <div>
+                                                      <div>{item.name || 'Item'}</div>
+                                                      {disc > 0 && <span className="block text-[9px] text-rose-500 font-bold">Disc: -{currencySymbol}{disc.toFixed(2)}</span>}
+                                                    </div>
+                                                  </div>
+                                              </td>
+                                              <td className="px-1.5 sm:px-3 py-2 text-slate-500 dark:text-slate-400 text-right whitespace-nowrap">{currencySymbol}{price.toFixed(2)}</td>
+                                              <td className="px-1.5 sm:px-2 py-2 text-slate-600 dark:text-slate-300 text-right font-bold whitespace-nowrap">x{qty}</td>
+                                              <td className="px-2.5 sm:px-3 py-2 text-slate-800 dark:text-slate-100 font-black text-right whitespace-nowrap">
+                                                  {currencySymbol}{total.toFixed(2)}
+                                              </td>
+                                          </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

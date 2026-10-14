@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { InventoryItem, SaleItem, SaleRecord, PendingSale } from '../types';
-import { ShoppingCart, Plus, Trash2, CheckCircle, Search, Tag, Clock, User, X, Package, Calculator, Minus } from 'lucide-react';
+import { ShoppingCart, Plus, Trash2, CheckCircle, Search, Tag, Clock, User, X, Package, Calculator, Minus, AlertTriangle, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { getCachedImageSync } from '../services/imageCache';
 
 interface SalesTerminalProps {
   inventory: InventoryItem[];
@@ -14,24 +15,77 @@ interface SalesTerminalProps {
 export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompleteSale, onDeferSale, currencySymbol }) => {
   const [cart, setCart] = useState<SaleItem[]>([]);
   
-  // Load draft from localStorage on mount
+  // Load draft from localStorage on mount & safely hydrate images from inventory
   useEffect(() => {
-    const savedCart = localStorage.getItem('pos_cart_draft');
-    if (savedCart) {
-      try {
-        setCart(JSON.parse(savedCart));
-      } catch (e) {
-        console.error("Failed to load cart draft", e);
+    try {
+      const savedCart = localStorage.getItem('pos_cart_draft');
+      if (savedCart) {
+        const parsed = JSON.parse(savedCart);
+        if (Array.isArray(parsed)) {
+          // Hydrate with current inventory images
+          const hydrated: SaleItem[] = parsed.map((item: any) => {
+            const inv = inventory.find(i => i.id === item.itemId);
+            return {
+              itemId: item.itemId,
+              name: item.name || inv?.name || 'Item',
+              quantity: Number(item.quantity) || 1,
+              priceAtSale: Number(item.priceAtSale) || Number(inv?.salesPrice) || 0,
+              costAtSale: Number(item.costAtSale) || Number(inv?.costPrice) || 0,
+              discount: Number(item.discount) || 0,
+              imageUrl: item.imageUrl || inv?.imageUrl || undefined
+            };
+          });
+          setCart(hydrated);
+        }
       }
+    } catch (e) {
+      console.warn("Failed to load or parse pos_cart_draft:", e);
+      try {
+        localStorage.removeItem('pos_cart_draft');
+      } catch {}
     }
   }, []);
 
-  // Sync draft to localStorage whenever it changes
+  // Whenever inventory updates, if cart items are missing imageUrl, re-hydrate them from inventory cache
   useEffect(() => {
-    if (cart.length > 0) {
-      localStorage.setItem('pos_cart_draft', JSON.stringify(cart));
-    } else {
-      localStorage.removeItem('pos_cart_draft');
+    if (cart.length > 0 && inventory.length > 0) {
+      setCart(prevCart => {
+        let changed = false;
+        const updated = prevCart.map(item => {
+          if (!item.imageUrl) {
+            const inv = inventory.find(i => i.id === item.itemId);
+            if (inv?.imageUrl) {
+              changed = true;
+              return { ...item, imageUrl: inv.imageUrl };
+            }
+          }
+          return item;
+        });
+        return changed ? updated : prevCart;
+      });
+    }
+  }, [inventory]);
+
+  // Sync draft to localStorage whenever cart changes (stripping base64 images to stay well within quota)
+  useEffect(() => {
+    try {
+      if (cart.length > 0) {
+        const lightweightCart = cart.map(item => ({
+          itemId: item.itemId,
+          name: item.name,
+          quantity: item.quantity,
+          priceAtSale: item.priceAtSale,
+          costAtSale: item.costAtSale,
+          discount: item.discount,
+          // Only store URL if not a base64 string to prevent quota crashes
+          imageUrl: item.imageUrl && !item.imageUrl.startsWith('data:') ? item.imageUrl : undefined
+        }));
+        localStorage.setItem('pos_cart_draft', JSON.stringify(lightweightCart));
+      } else {
+        localStorage.removeItem('pos_cart_draft');
+      }
+    } catch (e) {
+      console.warn("Storage quota exceeded or error syncing pos_cart_draft:", e);
     }
   }, [cart]);
 
@@ -39,7 +93,18 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [qtyInput, setQtyInput] = useState<number>(1);
   const [isAddToCartModalOpen, setIsAddToCartModalOpen] = useState(false);
+  const [modalWarning, setModalWarning] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState('');
+  
+  // Checkout Processing & Toast Feedback State
+  const [isProcessingSale, setIsProcessingSale] = useState(false);
+  const [checkoutToast, setCheckoutToast] = useState<{
+    type: 'processing' | 'success' | 'error';
+    message: string;
+    txId?: string;
+    total?: number;
+    itemCount?: number;
+  } | null>(null);
   
   // Defer Modal State
   const [isDeferModalOpen, setIsDeferModalOpen] = useState(false);
@@ -51,16 +116,24 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
 
   // Load defer draft
   useEffect(() => {
-    const savedCustomer = localStorage.getItem('pos_defer_customer');
-    const savedNotes = localStorage.getItem('pos_defer_notes');
-    if (savedCustomer) setCustomerName(savedCustomer);
-    if (savedNotes) setNotes(savedNotes);
+    try {
+      const savedCustomer = localStorage.getItem('pos_defer_customer');
+      const savedNotes = localStorage.getItem('pos_defer_notes');
+      if (savedCustomer) setCustomerName(savedCustomer);
+      if (savedNotes) setNotes(savedNotes);
+    } catch (e) {
+      console.warn("Failed to load defer draft", e);
+    }
   }, []);
 
   // Sync defer draft
   useEffect(() => {
-    localStorage.setItem('pos_defer_customer', customerName);
-    localStorage.setItem('pos_defer_notes', notes);
+    try {
+      localStorage.setItem('pos_defer_customer', customerName);
+      localStorage.setItem('pos_defer_notes', notes);
+    } catch (e) {
+      console.warn("Failed to save defer draft", e);
+    }
   }, [customerName, notes]);
 
   // Derive selected product from inventory to ensure we always show current stock levels
@@ -84,45 +157,57 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
 
   // Helper to calculate total quantity of an item already in cart
   const itemInCartTotal = (cartItems: SaleItem[], itemId: string): number => {
-    return cartItems.filter(i => i.itemId === itemId).reduce((acc, i) => acc + i.quantity, 0);
+    return cartItems.filter(i => i.itemId === itemId).reduce((acc, i) => acc + (Number(i.quantity) || 0), 0);
   };
 
   const addToCart = () => {
     if (!selectedProduct) return;
     
+    const availableStock = Math.max(0, Number(selectedProduct.quantity) || 0);
+
     if (qtyInput <= 0) {
-      alert("Quantity must be greater than 0");
+      setModalWarning("Please select at least 1 unit to add.");
       return;
     }
 
-    if (qtyInput > selectedProduct.quantity) {
-      alert(`Not enough stock. Only ${selectedProduct.quantity} available.`);
+    if (qtyInput > availableStock) {
+      setModalWarning(`Not enough stock. Only ${availableStock} units available.`);
       return;
     }
 
     const existingItemIndex = cart.findIndex(item => item.itemId === selectedProduct.id);
     const currentInCart = itemInCartTotal(cart, selectedProduct.id);
 
-    if (currentInCart + qtyInput > selectedProduct.quantity) {
-         alert(`Cannot add more. Total in cart (${currentInCart} + ${qtyInput}) would exceed stock (${selectedProduct.quantity}).`);
-         return;
+    if (currentInCart + qtyInput > availableStock) {
+      setModalWarning(`Cannot add ${qtyInput} more. You already have ${currentInCart} in cart (Available stock: ${availableStock}).`);
+      return;
     }
 
+    setModalWarning(null);
+
+    const nonBase64Image = (selectedProduct.imageUrl && !selectedProduct.imageUrl.startsWith('data:'))
+      ? selectedProduct.imageUrl
+      : undefined;
+
     if (existingItemIndex > -1) {
-        const newCart = [...cart];
-        newCart[existingItemIndex].quantity += qtyInput;
-        setCart(newCart);
+      const newCart = [...cart];
+      newCart[existingItemIndex] = {
+        ...newCart[existingItemIndex],
+        quantity: newCart[existingItemIndex].quantity + qtyInput,
+        imageUrl: newCart[existingItemIndex].imageUrl || nonBase64Image
+      };
+      setCart(newCart);
     } else {
-        const newItem: SaleItem = {
-            itemId: selectedProduct.id,
-            name: selectedProduct.name,
-            quantity: qtyInput,
-            priceAtSale: selectedProduct.salesPrice,
-            costAtSale: selectedProduct.costPrice,
-            discount: 0,
-            imageUrl: selectedProduct.imageUrl
-        };
-        setCart([...cart, newItem]);
+      const newItem: SaleItem = {
+        itemId: selectedProduct.id,
+        name: selectedProduct.name,
+        quantity: qtyInput,
+        priceAtSale: Number(selectedProduct.salesPrice) || 0,
+        costAtSale: Number(selectedProduct.costPrice) || 0,
+        discount: 0,
+        imageUrl: nonBase64Image
+      };
+      setCart([...cart, newItem]);
     }
     
     // Reset selection logic
@@ -141,36 +226,104 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
   const updateDiscount = (index: number, discount: number) => {
     const newCart = [...cart];
     const item = newCart[index];
-    const maxDiscount = item.quantity * item.priceAtSale;
+    if (!item) return;
+    const maxDiscount = (Number(item.quantity) || 0) * (Number(item.priceAtSale) || 0);
     
     // Validate discount is positive and doesn't exceed total price
-    if (discount < 0) discount = 0;
-    if (discount > maxDiscount) discount = maxDiscount;
+    let val = Number(discount) || 0;
+    if (val < 0) val = 0;
+    if (val > maxDiscount) val = maxDiscount;
     
-    newCart[index].discount = discount;
+    newCart[index] = { ...item, discount: val };
     setCart(newCart);
   };
 
   const handleCheckout = async () => {
-    if (cart.length === 0) return;
-    await onCompleteSale(cart);
-    setCart([]);
-    setSuccessMsg('Sale recorded successfully!');
-    setSelectedProductId(null); // Clear selection to prevent showing stale data if quantity drops to 0
+    if (cart.length === 0 || isProcessingSale) return;
+    
+    const currentCart = [...cart];
+    const itemsCount = currentCart.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
+    const finalTotal = cartTotal;
+
+    setIsProcessingSale(true);
+    setCheckoutToast({
+      type: 'processing',
+      message: 'Saving transaction and updating inventory records...'
+    });
+
+    try {
+      // Deliberate brief tick so transaction progress is perceptible
+      await new Promise(resolve => setTimeout(resolve, 450));
+      const sale = await onCompleteSale(currentCart);
+
+      setCart([]);
+      setSelectedProductId(null);
+      setSuccessMsg('');
+
+      setCheckoutToast({
+        type: 'success',
+        message: 'Transaction saved and inventory updated successfully!',
+        txId: sale?.id ? sale.id.slice(0, 8).toUpperCase() : undefined,
+        total: finalTotal,
+        itemCount: itemsCount
+      });
+
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => {
+        setCheckoutToast(prev => (prev?.type === 'success' ? null : prev));
+      }, 5000);
+    } catch (err: any) {
+      console.error('Checkout error:', err);
+      setCheckoutToast({
+        type: 'error',
+        message: err?.message || 'Failed to save transaction. Please check connection and retry.'
+      });
+    } finally {
+      setIsProcessingSale(false);
+    }
   };
 
   const handleDefer = async () => {
-    if (cart.length === 0 || !customerName.trim()) return;
-    await onDeferSale(cart, customerName, notes);
-    setCart([]);
-    setIsDeferModalOpen(false);
-    setCustomerName('');
-    setNotes('');
-    setSuccessMsg('Sale deferred successfully!');
-    setSelectedProductId(null);
+    if (cart.length === 0 || !customerName.trim() || isProcessingSale) return;
+    
+    setIsProcessingSale(true);
+    setCheckoutToast({
+      type: 'processing',
+      message: `Recording deferred credit for ${customerName}...`
+    });
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 450));
+      await onDeferSale(cart, customerName, notes);
+      const savedCust = customerName;
+      setCart([]);
+      setIsDeferModalOpen(false);
+      setCustomerName('');
+      setNotes('');
+      setSelectedProductId(null);
+      setSuccessMsg('');
+
+      setCheckoutToast({
+        type: 'success',
+        message: `Sale successfully deferred for ${savedCust}.`,
+        total: cartTotal
+      });
+
+      setTimeout(() => {
+        setCheckoutToast(prev => (prev?.type === 'success' ? null : prev));
+      }, 5000);
+    } catch (err: any) {
+      console.error('Defer error:', err);
+      setCheckoutToast({
+        type: 'error',
+        message: err?.message || 'Failed to record deferred sale.'
+      });
+    } finally {
+      setIsProcessingSale(false);
+    }
   };
 
-  const cartTotal = cart.reduce((acc, item) => acc + (item.quantity * item.priceAtSale) - (item.discount || 0), 0);
+  const cartTotal = cart.reduce((acc, item) => acc + ((Number(item.quantity) || 0) * (Number(item.priceAtSale) || 0)) - (Number(item.discount) || 0), 0);
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -238,6 +391,7 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                     onClick={() => { 
                       setSelectedProductId(item.id); 
                       setQtyInput(1); 
+                      setModalWarning(null);
                       setIsAddToCartModalOpen(true);
                     }}
                     className={`cursor-pointer p-3 sm:p-5 rounded-2xl sm:rounded-[2rem] border transition-all relative overflow-hidden group ${
@@ -336,16 +490,19 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20, scale: 0.9 }}
-                  key={`${item.itemId}-${index}`} 
+                  key={`cart-item-${item.itemId}-${index}`} 
                   className="p-3.5 sm:p-5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl sm:rounded-3xl group relative"
                 >
                   <div className="flex justify-between items-start mb-2 sm:mb-3">
                     <div className="flex items-center gap-2.5 flex-1 pr-2">
-                      {item.imageUrl && (
-                        <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0">
-                          <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
-                        </div>
-                      )}
+                      {(() => {
+                        const img = item.imageUrl || (item.itemId ? getCachedImageSync(item.itemId) : undefined);
+                        return img ? (
+                          <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0">
+                            <img src={img} alt={item.name} className="w-full h-full object-cover" />
+                          </div>
+                        ) : null;
+                      })()}
                       <div>
                         <div className="font-bold text-slate-800 dark:text-white text-xs sm:text-base leading-tight mb-0.5">{item.name}</div>
                         <div className="text-[10px] sm:text-sm font-black text-indigo-500/60 uppercase tracking-widest">{item.quantity} units</div>
@@ -365,7 +522,7 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                       <div className="flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 focus-within:ring-2 ring-indigo-500/20 transition-all">
                            <Tag className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-400 mr-1.5 sm:mr-2" />
                            <input 
-                              type="number"
+                              type="number" 
                               min="0"
                               placeholder="Discount"
                               className="w-16 sm:w-20 text-xs sm:text-sm font-bold bg-transparent focus:outline-none text-slate-900 dark:text-slate-100 placeholder-slate-300"
@@ -377,14 +534,14 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                       <div className="text-right">
                         <div className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5 sm:mb-1">Subtotal</div>
                         <div className="font-black text-slate-800 dark:text-white text-sm sm:text-lg">
-                            {currencySymbol}{((item.quantity * item.priceAtSale) - (item.discount || 0)).toFixed(2)}
+                            {currencySymbol}{(((item.quantity || 0) * (Number(item.priceAtSale) || 0)) - (Number(item.discount) || 0)).toFixed(2)}
                         </div>
                       </div>
                   </div>
                   
                   {item.discount && item.discount > 0 ? (
                     <div className="absolute -top-2 -left-2 bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded-md sm:rounded-lg shadow-lg rotate-[-5deg]">
-                       SAVED {currencySymbol}{(item.discount || 0).toFixed(2)}
+                       SAVED {currencySymbol}{(Number(item.discount) || 0).toFixed(2)}
                     </div>
                   ) : null}
                 </motion.div>
@@ -415,25 +572,34 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
           
           <div className="grid grid-cols-1 gap-2.5 sm:gap-4">
             <motion.button 
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={{ scale: isProcessingSale ? 1 : 1.02 }}
+                whileTap={{ scale: isProcessingSale ? 1 : 0.98 }}
                 onClick={handleCheckout}
-                disabled={cart.length === 0}
+                disabled={cart.length === 0 || isProcessingSale}
                 className="w-full py-3.5 sm:py-5 bg-emerald-600 text-white font-black rounded-xl sm:rounded-[2rem] shadow-xl shadow-emerald-500/20 hover:bg-emerald-500 transition-all active:shadow-inner disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center uppercase tracking-widest text-xs sm:text-sm"
             >
-                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3" />
-                Complete Transaction
+                {isProcessingSale ? (
+                  <>
+                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3 animate-spin" />
+                    <span>Processing Transaction...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3" />
+                    <span>Complete Transaction</span>
+                  </>
+                )}
             </motion.button>
 
             <motion.button 
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => cart.length > 0 && setIsDeferModalOpen(true)}
-                disabled={cart.length === 0}
-                className="w-full py-3 sm:py-4 bg-indigo-500/5 text-indigo-600 dark:text-indigo-400 font-bold rounded-xl sm:rounded-[2rem] border-2 border-indigo-500/20 hover:bg-indigo-500/10 transition-all flex items-center justify-center text-xs sm:text-sm"
+                whileHover={{ scale: isProcessingSale ? 1 : 1.02 }}
+                whileTap={{ scale: isProcessingSale ? 1 : 0.98 }}
+                onClick={() => cart.length > 0 && !isProcessingSale && setIsDeferModalOpen(true)}
+                disabled={cart.length === 0 || isProcessingSale}
+                className="w-full py-3 sm:py-4 bg-indigo-500/5 text-indigo-600 dark:text-indigo-400 font-bold rounded-xl sm:rounded-[2rem] border-2 border-indigo-500/20 hover:bg-indigo-500/10 transition-all flex items-center justify-center text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2" />
-                Defer to Credit (Pending)
+                <span>Defer to Credit (Pending)</span>
             </motion.button>
           </div>
 
@@ -596,9 +762,9 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                       {selectedProduct.name}
                     </h3>
                     <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                      <span>{currencySymbol}{selectedProduct.salesPrice.toFixed(2)}</span>
+                      <span>{currencySymbol}{(Number(selectedProduct.salesPrice) || 0).toFixed(2)}</span>
                       <span>•</span>
-                      <span className={selectedProduct.quantity > selectedProduct.lowStockThreshold ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-rose-500 font-semibold'}>
+                      <span className={(selectedProduct.quantity || 0) > (selectedProduct.lowStockThreshold ?? 5) ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-rose-500 font-semibold'}>
                         {selectedProduct.quantity} in stock
                       </span>
                     </div>
@@ -610,6 +776,7 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                   onClick={() => {
                     setIsAddToCartModalOpen(false);
                     setSelectedProductId(null);
+                    setModalWarning(null);
                   }} 
                   className="p-1 hover:bg-slate-200/50 dark:hover:bg-slate-800 rounded-lg transition-colors"
                 >
@@ -626,6 +793,20 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                   </div>
                 )}
 
+                {/* Inline Banner Warnings inside modal */}
+                {(modalWarning || (selectedProduct.quantity - itemInCartTotal(cart, selectedProduct.id) <= 0) || (qtyInput > Math.max(0, selectedProduct.quantity - itemInCartTotal(cart, selectedProduct.id)))) && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 p-2.5 rounded-xl flex items-start gap-2 text-xs">
+                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <span className="font-semibold leading-snug">
+                      {modalWarning || (
+                        (selectedProduct.quantity - itemInCartTotal(cart, selectedProduct.id) <= 0)
+                          ? "All available stock for this item is already in your cart."
+                          : `Requested quantity exceeds available stock (${Math.max(0, selectedProduct.quantity - itemInCartTotal(cart, selectedProduct.id))} available).`
+                      )}
+                    </span>
+                  </div>
+                )}
+
                 {/* Quantity Selector */}
                 <div className="space-y-1">
                   <div className="flex justify-between items-center">
@@ -633,30 +814,46 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                       Quantity to Add
                     </label>
                     <span className="text-[10px] text-slate-400">
-                      Max: {Math.max(0, selectedProduct.quantity - itemInCartTotal(cart, selectedProduct.id))}
+                      Available: {Math.max(0, selectedProduct.quantity - itemInCartTotal(cart, selectedProduct.id))}
                     </span>
                   </div>
                   
                   <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
                     <motion.button 
                       whileTap={{ scale: 0.9 }}
-                      onClick={() => setQtyInput(Math.max(1, qtyInput - 1))}
-                      className="p-1.5 sm:p-2 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all"
+                      onClick={() => {
+                        setModalWarning(null);
+                        setQtyInput(Math.max(1, qtyInput - 1));
+                      }}
+                      disabled={qtyInput <= 1}
+                      className="p-1.5 sm:p-2 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       <Minus className="w-4 h-4" />
                     </motion.button>
                     <input 
                       type="number" 
                       min="1"
-                      max={selectedProduct.quantity}
+                      max={Math.max(1, selectedProduct.quantity - itemInCartTotal(cart, selectedProduct.id))}
                       className="w-full text-center font-black text-base sm:text-lg focus:outline-none bg-transparent text-slate-900 dark:text-slate-100"
                       value={qtyInput}
-                      onChange={(e) => setQtyInput(parseInt(e.target.value) || 0)}
+                      onChange={(e) => {
+                        setModalWarning(null);
+                        setQtyInput(parseInt(e.target.value) || 0);
+                      }}
                     />
                     <motion.button 
                       whileTap={{ scale: 0.9 }}
-                      onClick={() => setQtyInput(Math.min(selectedProduct.quantity - itemInCartTotal(cart, selectedProduct.id), qtyInput + 1))}
-                      className="p-1.5 sm:p-2 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all"
+                      onClick={() => {
+                        const maxAllowed = Math.max(0, selectedProduct.quantity - itemInCartTotal(cart, selectedProduct.id));
+                        if (qtyInput >= maxAllowed) {
+                          setModalWarning(`Cannot exceed remaining stock of ${maxAllowed} units.`);
+                        } else {
+                          setModalWarning(null);
+                          setQtyInput(qtyInput + 1);
+                        }
+                      }}
+                      disabled={selectedProduct.quantity - itemInCartTotal(cart, selectedProduct.id) <= 0 || qtyInput >= (selectedProduct.quantity - itemInCartTotal(cart, selectedProduct.id))}
+                      className="p-1.5 sm:p-2 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       <Plus className="w-4 h-4" />
                     </motion.button>
@@ -668,7 +865,7 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                   <div>
                     <span className="text-[9px] font-black uppercase text-indigo-500 tracking-wider block">Item Subtotal</span>
                     <span className="text-lg sm:text-xl font-black text-indigo-600 dark:text-indigo-400">
-                      {currencySymbol}{(qtyInput * selectedProduct.salesPrice).toFixed(2)}
+                      {currencySymbol}{((qtyInput || 0) * (Number(selectedProduct.salesPrice) || 0)).toFixed(2)}
                     </span>
                   </div>
                   <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-400/40" />
@@ -682,6 +879,7 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                   onClick={() => {
                     setIsAddToCartModalOpen(false);
                     setSelectedProductId(null);
+                    setModalWarning(null);
                   }}
                   className="px-3.5 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 text-xs uppercase tracking-wider transition-all"
                 >
@@ -700,6 +898,80 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Compact Bottom Banner Toast for Sales Processing & Completion */}
+      <AnimatePresence>
+        {checkoutToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 40, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className={`fixed bottom-20 lg:bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-lg z-50 p-4 rounded-2xl shadow-2xl border backdrop-blur-md flex items-center justify-between gap-3 ${
+              checkoutToast.type === 'processing'
+                ? 'bg-slate-900/95 text-white border-indigo-500/40 shadow-indigo-500/10'
+                : checkoutToast.type === 'success'
+                ? 'bg-emerald-950/95 text-emerald-100 border-emerald-500/40 shadow-emerald-950/50'
+                : 'bg-rose-950/95 text-rose-100 border-rose-500/40 shadow-rose-950/50'
+            }`}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div
+                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                  checkoutToast.type === 'processing'
+                    ? 'bg-indigo-600/30 text-indigo-400'
+                    : checkoutToast.type === 'success'
+                    ? 'bg-emerald-500/20 text-emerald-400'
+                    : 'bg-rose-500/20 text-rose-400'
+                }`}
+              >
+                {checkoutToast.type === 'processing' ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : checkoutToast.type === 'success' ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-rose-400" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs sm:text-sm font-bold tracking-tight">
+                    {checkoutToast.type === 'processing'
+                      ? 'Processing Sale...'
+                      : checkoutToast.type === 'success'
+                      ? 'Sale Completed!'
+                      : 'Transaction Error'}
+                  </span>
+                  {checkoutToast.txId && (
+                    <span className="text-[10px] font-mono bg-white/10 px-1.5 py-0.5 rounded text-white/80">
+                      #{checkoutToast.txId}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] sm:text-xs text-white/80 truncate">
+                  {checkoutToast.message}
+                </p>
+                {checkoutToast.total !== undefined && checkoutToast.type === 'success' && (
+                  <p className="text-[10px] text-emerald-300 font-mono tabular-nums mt-0.5">
+                    Total: {currencySymbol}{checkoutToast.total.toFixed(2)}
+                    {checkoutToast.itemCount ? ` · ${checkoutToast.itemCount} items` : ''}
+                  </p>
+                )}
+              </div>
+            </div>
+            {checkoutToast.type !== 'processing' && (
+              <button
+                type="button"
+                onClick={() => setCheckoutToast(null)}
+                className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                title="Dismiss notice"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

@@ -454,7 +454,12 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                           <button onClick={() => handleEdit(item)} className="text-slate-400 hover:text-indigo-600 transition-colors" title="Edit Details">
                             <Edit2 className="w-5 h-5" />
                           </button>
-                          <button onClick={() => onDelete(item.id)} className="text-slate-400 hover:text-red-600 transition-colors" title="Delete Product">
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} 
+                            className="text-slate-400 hover:text-red-600 transition-colors p-1" 
+                            title="Delete Product"
+                          >
                             <Trash2 className="w-5 h-5" />
                           </button>
                       </div>
@@ -540,8 +545,10 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button 
-                      onClick={() => onDelete(item.id)} 
-                      className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg"
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} 
+                      className="p-2 text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/60 rounded-lg transition-colors"
+                      title="Delete Product"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

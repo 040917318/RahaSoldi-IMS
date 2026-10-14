@@ -70,18 +70,23 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
-  const filteredSales = allSalesCombined.filter((sale: any) => 
-    sale.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sale.items.some((item: any) => item.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (sale.customerName && sale.customerName.toLowerCase().includes(searchTerm.toLowerCase()))
-  ).slice(0, 5);
+  const filteredSales = allSalesCombined.filter((sale: any) => {
+    const term = searchTerm.toLowerCase();
+    const items = Array.isArray(sale.items) ? sale.items : [];
+    return (
+      (sale.id || '').toLowerCase().includes(term) ||
+      items.some((item: any) => (item?.name || '').toLowerCase().includes(term)) ||
+      (sale.customerName && String(sale.customerName).toLowerCase().includes(term))
+    );
+  }).slice(0, 5);
 
   const handleSelectSale = (sale: any) => {
     setSelectedSaleId(sale.id);
-    setDocumentItems(sale.items.map((i: any) => ({
-      description: i.name,
-      quantity: i.quantity,
-      price: i.priceAtSale
+    const items = Array.isArray(sale.items) ? sale.items : [];
+    setDocumentItems(items.map((i: any) => ({
+      description: i?.name || 'Item',
+      quantity: Number(i?.quantity) || 1,
+      price: Number(i?.priceAtSale) || 0
     })));
     setDiscount(0);
     setApplyTax(false);

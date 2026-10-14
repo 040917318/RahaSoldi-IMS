@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { LayoutDashboard, Package, ShoppingCart, BrainCircuit, Menu, X, History, Wifi, WifiOff, Loader2, PieChart, Truck, LogOut, Shield, RefreshCw, Moon, Sun, FileText, Clock, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, BrainCircuit, Menu, X, History, Wifi, WifiOff, Loader2, PieChart, Truck, LogOut, Shield, RefreshCw, Moon, Sun, FileText, Clock, ChevronRight, RotateCcw, Trash2 } from 'lucide-react';
 import { Auth } from './components/Auth';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { InventoryItem, SaleRecord, SaleItem, ViewState, ExpenseRecord, UserRole, AuditLog, PendingSale } from './types';
 import { supabase } from './services/supabaseClient';
 import { Session } from '@supabase/supabase-js';
@@ -84,6 +85,13 @@ const App: React.FC = () => {
   // Offline / Sync State
   const [pendingActions, setPendingActions] = useState<number>(0);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Inventory Instant Deletion & Undo State
+  const [pendingDelete, setPendingDelete] = useState<{
+    item: InventoryItem;
+    index: number;
+    timerId: ReturnType<typeof setTimeout>;
+  } | null>(null);
 
   // Inactivity Timeout Logic
   useEffect(() => {
@@ -284,9 +292,211 @@ const App: React.FC = () => {
     setPendingActions(queue.length);
   }, []);
 
-  // Persist Helper
+  // Resilient Persist Helper (Protects against DOMException QuotaExceededError)
   const persist = (key: string, data: any) => {
+    try {
+      if (key === 'sales' && Array.isArray(data)) {
+        // Strip heavy base64 images from sales items and cap local storage to most recent 100 sales
+        const sanitized = data.slice(0, 100).map(sale => ({
+          ...sale,
+          items: Array.isArray(sale.items)
+            ? sale.items.map((i: any) => ({
+                itemId: i.itemId,
+                name: i.name || 'Unnamed Item',
+                quantity: Number(i.quantity) || 1,
+                priceAtSale: Number(i.priceAtSale) || 0,
+                costAtSale: Number(i.costAtSale) || 0,
+                discount: Number(i.discount) || 0,
+                imageUrl: (typeof i.imageUrl === 'string' && !i.imageUrl.startsWith('data:')) ? i.imageUrl : undefined
+              }))
+            : []
+        }));
+        localStorage.setItem(key, JSON.stringify(sanitized));
+        return;
+      }
+
+      if (key === 'inventory' && Array.isArray(data)) {
+        // Strip base64 images from local storage copy; images are securely in IndexedDB via imageCache
+        const sanitized = data.map(item => ({
+          ...item,
+          imageUrl: (typeof item.imageUrl === 'string' && !item.imageUrl.startsWith('data:')) ? item.imageUrl : undefined
+        }));
+        localStorage.setItem(key, JSON.stringify(sanitized));
+        return;
+      }
+
+      if (key === 'pendingSales' && Array.isArray(data)) {
+        const sanitized = data.map(ps => ({
+          ...ps,
+          items: Array.isArray(ps.items)
+            ? ps.items.map((i: any) => ({
+                itemId: i.itemId,
+                name: i.name || 'Unnamed Item',
+                quantity: Number(i.quantity) || 1,
+                priceAtSale: Number(i.priceAtSale) || 0,
+                costAtSale: Number(i.costAtSale) || 0,
+                discount: Number(i.discount) || 0,
+                imageUrl: (typeof i.imageUrl === 'string' && !i.imageUrl.startsWith('data:')) ? i.imageUrl : undefined
+              }))
+            : []
+        }));
+        localStorage.setItem(key, JSON.stringify(sanitized));
+        return;
+      }
+
       localStorage.setItem(key, JSON.stringify(data));
+    } catch (err) {
+      console.warn(`[Storage] Failed to persist ${key} to localStorage:`, err);
+      // Secondary fallback attempt: prune older sales
+      try {
+        if (key === 'sales' && Array.isArray(data)) {
+          const minimal = data.slice(0, 30).map(s => ({
+            id: s.id,
+            totalAmount: Number(s.totalAmount) || 0,
+            totalProfit: Number(s.totalProfit) || 0,
+            recordedBy: s.recordedBy,
+            timestamp: s.timestamp,
+            items: (s.items || []).map((i: any) => ({
+              itemId: i.itemId,
+              name: i.name,
+              quantity: i.quantity,
+              priceAtSale: i.priceAtSale
+            }))
+          }));
+          localStorage.setItem(key, JSON.stringify(minimal));
+        }
+      } catch (inner) {
+        console.warn(`[Storage] Quota exceeded recovery failed for ${key}`, inner);
+      }
+    }
+  };
+
+  // Schema-Adaptive Cloud Helpers for Sales and Pending Sales
+  const saveSaleToCloud = async (sale: SaleRecord): Promise<void> => {
+    const cleanItems = (sale.items || []).map(i => ({
+      itemId: i.itemId,
+      name: i.name || 'Unnamed Item',
+      quantity: Number(i.quantity) || 1,
+      priceAtSale: Number(i.priceAtSale) || 0,
+      costAtSale: Number(i.costAtSale) || 0,
+      discount: Number(i.discount) || 0,
+      imageUrl: (typeof i.imageUrl === 'string' && !i.imageUrl.startsWith('data:')) ? i.imageUrl : undefined
+    }));
+
+    // Primary Attempt: standard columns with timestamp
+    const primaryPayload = {
+      id: sale.id,
+      items: cleanItems,
+      total_amount: Number(sale.totalAmount) || 0,
+      total_profit: Number(sale.totalProfit) || 0,
+      recorded_by: sale.recordedBy || 'Staff',
+      timestamp: sale.timestamp
+    };
+
+    const { error: err1 } = await supabase.from('sales').insert([primaryPayload]);
+    if (!err1) return;
+
+    console.warn("Primary sale insert failed, trying schema-adaptive fallbacks:", err1);
+
+    // Fallback 1: Try with created_at instead of timestamp (frequent Supabase table default)
+    const { error: err2 } = await supabase.from('sales').insert([{
+      id: sale.id,
+      items: cleanItems,
+      total_amount: Number(sale.totalAmount) || 0,
+      total_profit: Number(sale.totalProfit) || 0,
+      recorded_by: sale.recordedBy || 'Staff',
+      created_at: sale.timestamp
+    }]);
+    if (!err2) return;
+
+    // Fallback 2: Try minimal with created_at (no recorded_by / total_profit)
+    const { error: err3 } = await supabase.from('sales').insert([{
+      id: sale.id,
+      items: cleanItems,
+      total_amount: Number(sale.totalAmount) || 0,
+      created_at: sale.timestamp
+    }]);
+    if (!err3) return;
+
+    // Fallback 3: Try minimal with timestamp
+    const { error: err4 } = await supabase.from('sales').insert([{
+      id: sale.id,
+      items: cleanItems,
+      total_amount: Number(sale.totalAmount) || 0,
+      timestamp: sale.timestamp
+    }]);
+    if (!err4) return;
+
+    // Fallback 4: Try stringified items if the items column in Postgres is TEXT instead of JSONB
+    const { error: err5 } = await supabase.from('sales').insert([{
+      id: sale.id,
+      items: JSON.stringify(cleanItems),
+      total_amount: Number(sale.totalAmount) || 0,
+      created_at: sale.timestamp
+    }]);
+    if (!err5) return;
+
+    // Fallback 5: CamelCase totalAmount
+    const { error: err6 } = await supabase.from('sales').insert([{
+      id: sale.id,
+      items: cleanItems,
+      totalAmount: Number(sale.totalAmount) || 0
+    }]);
+    if (!err6) return;
+
+    // If all attempts failed, throw so the caller can queue it for offline/background sync
+    throw err1;
+  };
+
+  const savePendingSaleToCloud = async (pendingSale: PendingSale): Promise<void> => {
+    const cleanItems = (pendingSale.items || []).map(i => ({
+      itemId: i.itemId,
+      name: i.name || 'Unnamed Item',
+      quantity: Number(i.quantity) || 1,
+      priceAtSale: Number(i.priceAtSale) || 0,
+      costAtSale: Number(i.costAtSale) || 0,
+      discount: Number(i.discount) || 0,
+      imageUrl: (typeof i.imageUrl === 'string' && !i.imageUrl.startsWith('data:')) ? i.imageUrl : undefined
+    }));
+
+    const primaryPayload = {
+      id: pendingSale.id,
+      customer_name: pendingSale.customerName,
+      items: cleanItems,
+      total_amount: Number(pendingSale.totalAmount) || 0,
+      total_profit: Number(pendingSale.totalProfit) || 0,
+      recorded_by: pendingSale.recordedBy || 'Staff',
+      timestamp: pendingSale.timestamp,
+      notes: pendingSale.notes || ''
+    };
+
+    const { error: err1 } = await supabase.from('pending_sales').insert([primaryPayload]);
+    if (!err1) return;
+
+    console.warn("Primary pending sale insert failed, trying schema-adaptive fallbacks:", err1);
+
+    // Fallback 1: created_at instead of timestamp
+    const { error: err2 } = await supabase.from('pending_sales').insert([{
+      id: pendingSale.id,
+      customer_name: pendingSale.customerName,
+      items: cleanItems,
+      total_amount: Number(pendingSale.totalAmount) || 0,
+      total_profit: Number(pendingSale.totalProfit) || 0,
+      created_at: pendingSale.timestamp,
+      notes: pendingSale.notes || ''
+    }]);
+    if (!err2) return;
+
+    // Fallback 2: minimal fields
+    const { error: err3 } = await supabase.from('pending_sales').insert([{
+      id: pendingSale.id,
+      customer_name: pendingSale.customerName,
+      items: cleanItems,
+      total_amount: Number(pendingSale.totalAmount) || 0
+    }]);
+    if (!err3) return;
+
+    throw err1;
   };
 
   // Queue Action Helper
@@ -329,79 +539,19 @@ const App: React.FC = () => {
                         break;
                     case 'SALE': {
                         const { sale, items } = action.payload;
-                        const { error: saleErr } = await supabase.from('sales').insert([{
-                            id: sale.id,
-                            items: sale.items,
-                            total_amount: sale.totalAmount,
-                            total_profit: sale.totalProfit,
-                            recorded_by: sale.recordedBy,
-                            timestamp: sale.timestamp
-                        }]);
-                        
-                        if (saleErr) {
-                            // Try fallback without recorded_by
-                            const { error: fErr } = await supabase.from('sales').insert([{
-                                id: sale.id,
-                                items: sale.items,
-                                total_amount: sale.totalAmount,
-                                total_profit: sale.totalProfit,
-                                timestamp: sale.timestamp
-                            }]);
-                            if (fErr) throw fErr;
-                        }
+                        await saveSaleToCloud(sale);
                         await updateSupabaseInventory(items);
                         break;
                     }
                     case 'DEFER_SALE': {
                         const { pendingSale: pSale, items: deferredItems } = action.payload;
-                        const { error: deferErr } = await supabase.from('pending_sales').insert([{
-                            id: pSale.id,
-                            customer_name: pSale.customerName,
-                            items: pSale.items,
-                            total_amount: pSale.totalAmount,
-                            total_profit: pSale.totalProfit,
-                            recorded_by: pSale.recordedBy,
-                            timestamp: pSale.timestamp,
-                            notes: pSale.notes
-                        }]);
-                        
-                        if (deferErr) {
-                            // Try fallback
-                            const { error: fErr } = await supabase.from('pending_sales').insert([{
-                                id: pSale.id,
-                                customer_name: pSale.customerName,
-                                items: pSale.items,
-                                total_amount: pSale.totalAmount,
-                                total_profit: pSale.totalProfit,
-                                timestamp: pSale.timestamp
-                            }]);
-                            if (fErr) throw fErr;
-                        }
+                        await savePendingSaleToCloud(pSale);
                         await updateSupabaseInventory(deferredItems);
                         break;
                     }
                     case 'COMPLETE_PENDING': {
                         const { saleId, finalizedSale } = action.payload;
-                        const { error: cpErr } = await supabase.from('sales').insert([{
-                            id: finalizedSale.id,
-                            items: finalizedSale.items,
-                            total_amount: finalizedSale.totalAmount,
-                            total_profit: finalizedSale.totalProfit,
-                            recorded_by: finalizedSale.recordedBy,
-                            timestamp: finalizedSale.timestamp
-                        }]);
-                        
-                        if (cpErr) {
-                            // Try fallback
-                            const { error: fErr } = await supabase.from('sales').insert([{
-                                id: finalizedSale.id,
-                                items: finalizedSale.items,
-                                total_amount: finalizedSale.totalAmount,
-                                total_profit: finalizedSale.totalProfit,
-                                timestamp: finalizedSale.timestamp
-                            }]);
-                            if (fErr) throw fErr;
-                        }
+                        await saveSaleToCloud(finalizedSale);
                         await supabase.from('pending_sales').delete().eq('id', saleId);
                         break;
                     }
@@ -453,20 +603,28 @@ const App: React.FC = () => {
 
 
   const updateSupabaseInventory = async (items: SaleItem[], isRestock = false) => {
-    for (const item of items) {
-      const qtyKey = dbKeys.quantity || 'quantity';
-      const updateKey = dbKeys.lastUpdated || 'last_updated';
-      
-      const { data: curr } = await supabase.from('inventory').select(qtyKey).eq('id', item.itemId).single();
-      if (curr) {
-          const currentQty = Number((curr as any)[qtyKey] ?? 0);
-          const newQty = isRestock ? currentQty + item.quantity : currentQty - item.quantity;
-          const payload: any = {};
-          payload[qtyKey] = newQty;
-          payload[updateKey] = new Date().toISOString();
-          
-          await supabase.from('inventory').update(payload).eq('id', item.itemId);
+    try {
+      for (const item of items) {
+        const qtyKey = dbKeys.quantity || 'quantity';
+        const updateKey = dbKeys.lastUpdated || 'last_updated';
+        
+        const { data: curr, error: selErr } = await supabase.from('inventory').select(qtyKey).eq('id', item.itemId).maybeSingle();
+        if (curr) {
+            const currentQty = Number((curr as any)[qtyKey] ?? 0);
+            const newQty = isRestock ? currentQty + item.quantity : currentQty - item.quantity;
+            const payload: any = {};
+            payload[qtyKey] = newQty;
+            payload[updateKey] = new Date().toISOString();
+            
+            const { error: updErr } = await supabase.from('inventory').update(payload).eq('id', item.itemId);
+            if (updErr) {
+              // Try fallback with only quantity update if last_updated column differs
+              await supabase.from('inventory').update({ [qtyKey]: newQty }).eq('id', item.itemId);
+            }
+        }
       }
+    } catch (e) {
+      console.warn("Could not sync inventory quantity to supabase:", e);
     }
   };
 
@@ -548,20 +706,26 @@ const App: React.FC = () => {
       // We don't block the whole app for one table failure
     }
 
-    // Fetch Sales separately
+    // Fetch Sales separately with resilient parsing
     try {
       const { data: salesData, error: salesErr } = await supabase.from('sales').select('*');
       if (salesErr) throw salesErr;
       if (salesData) {
           const formattedSales: SaleRecord[] = salesData.map(s => {
+              let parsedItems = s.items;
+              if (typeof parsedItems === 'string') {
+                try { parsedItems = JSON.parse(parsedItems); } catch { parsedItems = []; }
+              }
+              if (!Array.isArray(parsedItems)) parsedItems = [];
+
               const totalAmount = Number(s.total_amount ?? s.totalAmount ?? 0);
               const totalProfit = Number(s.total_profit ?? s.totalProfit ?? 0);
               return {
-                  id: s.id,
-                  items: s.items || [],
-                  totalAmount,
-                  totalProfit,
-                  recordedBy: s.recorded_by ?? s.recordedBy ?? 'N/A',
+                  id: s.id || crypto.randomUUID(),
+                  items: parsedItems,
+                  totalAmount: isNaN(totalAmount) ? 0 : totalAmount,
+                  totalProfit: isNaN(totalProfit) ? 0 : totalProfit,
+                  recordedBy: s.recorded_by ?? s.recordedBy ?? 'Staff',
                   timestamp: s.timestamp ?? s.created_at ?? s.createdAt ?? new Date().toISOString()
               };
           }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -573,22 +737,32 @@ const App: React.FC = () => {
       console.error("Sales fetch error:", error);
     }
 
-    // Fetch Pending Sales separately
+    // Fetch Pending Sales separately with resilient parsing
     try {
       const { data: pendingData, error: pendingErr } = await supabase.from('pending_sales').select('*');
       if (pendingErr) throw pendingErr;
 
       if (pendingData) {
-          const formattedPending: PendingSale[] = pendingData.map(p => ({
-              id: p.id,
-              customerName: p.customer_name ?? p.customerName ?? 'Guest',
-              items: p.items || [],
-              totalAmount: Number(p.total_amount ?? p.totalAmount ?? 0),
-              totalProfit: Number(p.total_profit ?? p.totalProfit ?? 0),
-              recordedBy: p.recorded_by ?? p.recordedBy ?? 'N/A',
-              timestamp: p.timestamp ?? p.created_at ?? p.createdAt ?? new Date().toISOString(),
-              notes: p.notes
-          })).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+          const formattedPending: PendingSale[] = pendingData.map(p => {
+              let parsedItems = p.items;
+              if (typeof parsedItems === 'string') {
+                try { parsedItems = JSON.parse(parsedItems); } catch { parsedItems = []; }
+              }
+              if (!Array.isArray(parsedItems)) parsedItems = [];
+
+              const totalAmount = Number(p.total_amount ?? p.totalAmount ?? 0);
+              const totalProfit = Number(p.total_profit ?? p.totalProfit ?? 0);
+              return {
+                  id: p.id || crypto.randomUUID(),
+                  customerName: p.customer_name ?? p.customerName ?? 'Guest',
+                  items: parsedItems,
+                  totalAmount: isNaN(totalAmount) ? 0 : totalAmount,
+                  totalProfit: isNaN(totalProfit) ? 0 : totalProfit,
+                  recordedBy: p.recorded_by ?? p.recordedBy ?? 'Staff',
+                  timestamp: p.timestamp ?? p.created_at ?? p.createdAt ?? new Date().toISOString(),
+                  notes: p.notes
+              };
+          }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
           
           setPendingSales(formattedPending);
           persist('pendingSales', formattedPending);
@@ -724,25 +898,78 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDeleteItem = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this item?')) {
-      removeCachedImage(id);
-      const updatedInventory = inventory.filter(item => item.id !== id);
-      setInventory(updatedInventory);
-      persist('inventory', updatedInventory);
+  const commitPermanentDelete = async (id: string) => {
+    removeCachedImage(id);
 
-      if (!isOnline) {
-          queueAction({ type: 'DELETE_ITEM', payload: { id } });
-          return;
-      }
-
-      try {
-        const { error } = await supabase.from('inventory').delete().eq('id', id);
-        if (error) throw error;
-      } catch (err) {
-        console.error("Error deleting item:", err);
-      }
+    if (!isOnline) {
+      queueAction({ type: 'DELETE_ITEM', payload: { id } });
+      return;
     }
+
+    try {
+      const { error } = await supabase.from('inventory').delete().eq('id', id);
+      if (error) console.error("Error permanently deleting item from DB:", error);
+    } catch (err) {
+      console.error("Error deleting item:", err);
+    }
+  };
+
+  const handleDeleteItem = (id: string) => {
+    // If another deletion was already pending undo, commit it now
+    if (pendingDelete) {
+      clearTimeout(pendingDelete.timerId);
+      commitPermanentDelete(pendingDelete.item.id);
+    }
+
+    const itemIndex = inventory.findIndex(item => item.id === id);
+    if (itemIndex === -1) return;
+    const deletedItem = inventory[itemIndex];
+
+    // Instantly remove from inventory UI & local persistence
+    const updatedInventory = inventory.filter(item => item.id !== id);
+    setInventory(updatedInventory);
+    persist('inventory', updatedInventory);
+    logAction(deletedItem.id, deletedItem.name, 'adjustment', `Item removed from inventory`);
+
+    // 6 second timer before permanently committing deletion to cloud database
+    const timer = setTimeout(() => {
+      commitPermanentDelete(id);
+      setPendingDelete(null);
+    }, 6000);
+
+    setPendingDelete({
+      item: deletedItem,
+      index: itemIndex,
+      timerId: timer
+    });
+  };
+
+  const handleUndoDelete = () => {
+    if (!pendingDelete) return;
+    clearTimeout(pendingDelete.timerId);
+    const restoredItem = pendingDelete.item;
+    const restoredIndex = pendingDelete.index;
+
+    setInventory(prev => {
+      const next = [...prev];
+      if (restoredIndex >= 0 && restoredIndex <= next.length) {
+        next.splice(restoredIndex, 0, restoredItem);
+      } else {
+        next.push(restoredItem);
+      }
+      persist('inventory', next);
+      return next;
+    });
+
+    logAction(restoredItem.id, restoredItem.name, 'create', `Item restored via Undo`);
+    setPendingDelete(null);
+  };
+
+  const handleDismissDeleteToast = () => {
+    if (!pendingDelete) return;
+    clearTimeout(pendingDelete.timerId);
+    commitPermanentDelete(pendingDelete.item.id);
+    setPendingDelete(null);
   };
 
   const handleRecheckDbSchema = async () => {
@@ -766,26 +993,38 @@ const App: React.FC = () => {
   };
 
   const handleCompleteSale = async (items: SaleItem[]): Promise<SaleRecord> => {
-    const totalAmount = items.reduce((sum, item) => sum + ((item.quantity * item.priceAtSale) - (item.discount || 0)), 0);
-    const totalCost = items.reduce((sum, item) => sum + (item.quantity * item.costAtSale), 0);
+    // Sanitize sale items: ensure proper numbers and strip out any base64 data URLs to prevent storage/payload errors
+    const sanitizedItems: SaleItem[] = (items || []).map(item => ({
+      itemId: item.itemId,
+      name: item.name || 'Unnamed Item',
+      quantity: Number(item.quantity) || 1,
+      priceAtSale: Number(item.priceAtSale) || 0,
+      costAtSale: Number(item.costAtSale) || 0,
+      discount: Number(item.discount) || 0,
+      imageUrl: (typeof item.imageUrl === 'string' && !item.imageUrl.startsWith('data:')) ? item.imageUrl : undefined
+    }));
+
+    const totalAmount = sanitizedItems.reduce((sum, item) => sum + ((item.quantity * item.priceAtSale) - (item.discount || 0)), 0);
+    const totalCost = sanitizedItems.reduce((sum, item) => sum + (item.quantity * item.costAtSale), 0);
+    const nowIso = new Date().toISOString();
     
     const newSale: SaleRecord = {
       id: crypto.randomUUID(),
-      items,
+      items: sanitizedItems,
       totalAmount,
       totalProfit: totalAmount - totalCost,
-      recordedBy: session?.user?.email || 'Unknown',
-      timestamp: new Date().toISOString()
+      recordedBy: session?.user?.email || 'Staff',
+      timestamp: nowIso
     };
 
-    // Update Local Inventory & Sales
+    // Update Local Inventory & Sales state
     const newInventory = [...inventory];
-    items.forEach(saleItem => {
+    sanitizedItems.forEach(saleItem => {
       const productIndex = newInventory.findIndex(p => p.id === saleItem.itemId);
       if (productIndex > -1) {
         const oldQty = newInventory[productIndex].quantity;
         const newQty = oldQty - saleItem.quantity;
-        newInventory[productIndex] = { ...newInventory[productIndex], quantity: newQty, lastUpdated: new Date().toISOString() };
+        newInventory[productIndex] = { ...newInventory[productIndex], quantity: newQty, lastUpdated: nowIso };
         logAction(saleItem.itemId, saleItem.name, 'sale', `Sold ${saleItem.quantity} units. Stock: ${oldQty} -> ${newQty}`);
       }
     });
@@ -798,70 +1037,56 @@ const App: React.FC = () => {
     persist('sales', newSales);
 
     if (!isOnline) {
-        queueAction({ type: 'SALE', payload: { sale: newSale, items } });
-        return newSale;
+      queueAction({ type: 'SALE', payload: { sale: newSale, items: sanitizedItems } });
+      return newSale;
     }
 
     try {
-        const saleData = {
-            id: newSale.id,
-            items: newSale.items,
-            total_amount: newSale.totalAmount, 
-            total_profit: newSale.totalProfit,
-            recorded_by: newSale.recordedBy,
-            timestamp: newSale.timestamp
-        };
-
-        const { error: saleError } = await supabase.from('sales').insert([saleData]);
-        
-        if (saleError) {
-             console.warn("Primary sale insert failed, trying minimal fallback:", saleError);
-             // Fallback: Try without recorded_by or other potentially missing columns
-             const { error: fallbackError } = await supabase.from('sales').insert([{
-                 id: newSale.id,
-                 items: newSale.items,
-                 total_amount: newSale.totalAmount,
-                 total_profit: newSale.totalProfit,
-                 timestamp: newSale.timestamp
-             }]);
-             
-             if (fallbackError) throw fallbackError;
-        }
-
-        await updateSupabaseInventory(items);
-    } catch (err) {
-        console.error("Error in handleCompleteSale:", err);
-        // Don't set error if it's a known schema issue we can live with, 
-        // but tell user we couldn't save to cloud
-        setFetchError(err instanceof Error ? err.message : "Failed to sync sale to cloud");
+      await saveSaleToCloud(newSale);
+      await updateSupabaseInventory(sanitizedItems);
+    } catch (err: any) {
+      console.warn("Sale cloud sync failed; safely queued for offline/background sync:", err);
+      queueAction({ type: 'SALE', payload: { sale: newSale, items: sanitizedItems } });
+      setFetchError(`Cloud sync: ${err?.message || 'Queued for background sync'}`);
     }
     
     return newSale;
   };
 
   const handleDeferSale = async (items: SaleItem[], customerName: string, notes: string): Promise<PendingSale> => {
-    const totalAmount = items.reduce((sum, item) => sum + ((item.quantity * item.priceAtSale) - (item.discount || 0)), 0);
-    const totalCost = items.reduce((sum, item) => sum + (item.quantity * item.costAtSale), 0);
+    const sanitizedItems: SaleItem[] = (items || []).map(item => ({
+      itemId: item.itemId,
+      name: item.name || 'Unnamed Item',
+      quantity: Number(item.quantity) || 1,
+      priceAtSale: Number(item.priceAtSale) || 0,
+      costAtSale: Number(item.costAtSale) || 0,
+      discount: Number(item.discount) || 0,
+      imageUrl: (typeof item.imageUrl === 'string' && !item.imageUrl.startsWith('data:')) ? item.imageUrl : undefined
+    }));
+
+    const totalAmount = sanitizedItems.reduce((sum, item) => sum + ((item.quantity * item.priceAtSale) - (item.discount || 0)), 0);
+    const totalCost = sanitizedItems.reduce((sum, item) => sum + (item.quantity * item.costAtSale), 0);
+    const nowIso = new Date().toISOString();
     
     const pendingSale: PendingSale = {
       id: crypto.randomUUID(),
-      customerName,
-      items,
+      customerName: (customerName || 'Guest').trim(),
+      items: sanitizedItems,
       totalAmount,
       totalProfit: totalAmount - totalCost,
-      recordedBy: session?.user?.email || 'Unknown',
-      timestamp: new Date().toISOString(),
-      notes
+      recordedBy: session?.user?.email || 'Staff',
+      timestamp: nowIso,
+      notes: notes || ''
     };
 
-    // Update Local Inventory & Pending Sales
+    // Update Local Inventory & Pending Sales state
     const newInventory = [...inventory];
-    items.forEach(saleItem => {
+    sanitizedItems.forEach(saleItem => {
       const productIndex = newInventory.findIndex(p => p.id === saleItem.itemId);
       if (productIndex > -1) {
         const oldQty = newInventory[productIndex].quantity;
         const newQty = oldQty - saleItem.quantity;
-        newInventory[productIndex] = { ...newInventory[productIndex], quantity: newQty, lastUpdated: new Date().toISOString() };
+        newInventory[productIndex] = { ...newInventory[productIndex], quantity: newQty, lastUpdated: nowIso };
         logAction(saleItem.itemId, saleItem.name, 'sale', `Deferred sale to ${customerName}. Stock: ${oldQty} -> ${newQty}`);
       }
     });
@@ -874,42 +1099,17 @@ const App: React.FC = () => {
     persist('pendingSales', newPending);
 
     if (!isOnline) {
-        queueAction({ type: 'DEFER_SALE', payload: { pendingSale, items } });
-        return pendingSale;
+      queueAction({ type: 'DEFER_SALE', payload: { pendingSale, items: sanitizedItems } });
+      return pendingSale;
     }
 
     try {
-        const pendingSaleDto = {
-          id: pendingSale.id,
-          customer_name: pendingSale.customerName,
-          items: pendingSale.items,
-          total_amount: pendingSale.totalAmount,
-          total_profit: pendingSale.totalProfit,
-          recorded_by: pendingSale.recordedBy,
-          timestamp: pendingSale.timestamp,
-          notes: pendingSale.notes
-        };
-
-        const { error: deferError } = await supabase.from('pending_sales').insert([pendingSaleDto]);
-        
-        if (deferError) {
-            console.warn("Primary pending sale insert failed, trying minimal fallback:", deferError);
-            const { error: fallbackError } = await supabase.from('pending_sales').insert([{
-                id: pendingSale.id,
-                customer_name: pendingSale.customerName,
-                items: pendingSale.items,
-                total_amount: pendingSale.totalAmount,
-                total_profit: pendingSale.totalProfit,
-                timestamp: pendingSale.timestamp
-            }]);
-            
-            if (fallbackError) throw fallbackError;
-        }
-        
-        await updateSupabaseInventory(items);
-    } catch (err) {
-        console.error("Error in handleDeferSale:", err);
-        setFetchError(err instanceof Error ? err.message : "Failed to defer sale to cloud");
+      await savePendingSaleToCloud(pendingSale);
+      await updateSupabaseInventory(sanitizedItems);
+    } catch (err: any) {
+      console.warn("Deferred sale cloud sync failed; safely queued for background sync:", err);
+      queueAction({ type: 'DEFER_SALE', payload: { pendingSale, items: sanitizedItems } });
+      setFetchError(`Cloud sync: ${err?.message || 'Queued for background sync'}`);
     }
     
     return pendingSale;
@@ -919,12 +1119,22 @@ const App: React.FC = () => {
     const pendingSale = pendingSales.find(s => s.id === saleId);
     if (!pendingSale) return;
 
+    const sanitizedItems: SaleItem[] = (pendingSale.items || []).map(item => ({
+      itemId: item.itemId,
+      name: item.name || 'Unnamed Item',
+      quantity: Number(item.quantity) || 1,
+      priceAtSale: Number(item.priceAtSale) || 0,
+      costAtSale: Number(item.costAtSale) || 0,
+      discount: Number(item.discount) || 0,
+      imageUrl: (typeof item.imageUrl === 'string' && !item.imageUrl.startsWith('data:')) ? item.imageUrl : undefined
+    }));
+
     const finalizedSale: SaleRecord = {
       id: crypto.randomUUID(),
-      items: pendingSale.items,
-      totalAmount: pendingSale.totalAmount,
-      totalProfit: pendingSale.totalProfit,
-      recordedBy: session?.user?.email || 'Unknown',
+      items: sanitizedItems,
+      totalAmount: Number(pendingSale.totalAmount) || 0,
+      totalProfit: Number(pendingSale.totalProfit) || 0,
+      recordedBy: session?.user?.email || 'Staff',
       timestamp: new Date().toISOString()
     };
 
@@ -938,41 +1148,20 @@ const App: React.FC = () => {
     persist('pendingSales', newPending);
 
     if (!isOnline) {
-        queueAction({ type: 'COMPLETE_PENDING', payload: { saleId, finalizedSale } });
-        return;
+      queueAction({ type: 'COMPLETE_PENDING', payload: { saleId, finalizedSale } });
+      return;
     }
 
     try {
-        const saleData = {
-            id: finalizedSale.id,
-            items: finalizedSale.items,
-            total_amount: finalizedSale.totalAmount,
-            total_profit: finalizedSale.totalProfit,
-            recorded_by: finalizedSale.recordedBy,
-            timestamp: finalizedSale.timestamp
-        };
-
-        const { error: saleError } = await supabase.from('sales').insert([saleData]);
-        if (saleError) {
-            console.warn("Finalizing pending sale failed, trying minimal fallback:", saleError);
-            const { error: fallbackError } = await supabase.from('sales').insert([{
-                id: finalizedSale.id,
-                items: finalizedSale.items,
-                total_amount: finalizedSale.totalAmount,
-                total_profit: finalizedSale.totalProfit,
-                timestamp: finalizedSale.timestamp
-            }]);
-            
-            if (fallbackError) throw fallbackError;
-        }
-        const { error: deleteError } = await supabase.from('pending_sales').delete().eq('id', saleId);
-        if (deleteError) {
-            console.error("Error deleting from pending_sales after completion:", deleteError);
-            throw new Error(`Sale finalized but could not remove from pending: ${deleteError.message}`);
-        }
-    } catch (err) {
-        console.error("Error in handleCompletePendingSale:", err);
-        setFetchError(err instanceof Error ? err.message : "Failed to complete pending sale in cloud");
+      await saveSaleToCloud(finalizedSale);
+      const { error: deleteError } = await supabase.from('pending_sales').delete().eq('id', saleId);
+      if (deleteError) {
+        console.warn("Error deleting finalized pending sale from DB:", deleteError);
+      }
+    } catch (err: any) {
+      console.warn("Complete pending sale cloud sync failed; safely queued for background sync:", err);
+      queueAction({ type: 'COMPLETE_PENDING', payload: { saleId, finalizedSale } });
+      setFetchError(`Cloud sync: ${err?.message || 'Queued for background sync'}`);
     }
   };
 
@@ -1405,7 +1594,13 @@ const App: React.FC = () => {
                          isSyncingImages={isSyncingImages}
                        />
                      )}
-                    {activeView === 'pos' && <SalesTerminal inventory={inventory} onCompleteSale={handleCompleteSale} onDeferSale={handleDeferSale} currencySymbol="GH₵" />}
+                    {activeView === 'pos' && (
+                      <ErrorBoundary fallbackTitle="Sales Terminal encountered an issue" onReset={() => {
+                        try { localStorage.removeItem('pos_cart_draft'); } catch {}
+                      }}>
+                        <SalesTerminal inventory={inventory} onCompleteSale={handleCompleteSale} onDeferSale={handleDeferSale} currencySymbol="GH₵" />
+                      </ErrorBoundary>
+                    )}
                     {activeView === 'pending' && <PendingSalesManager pendingSales={pendingSales} onComplete={handleCompletePendingSale} onCancel={handleCancelPendingSale} currencySymbol="GH₵" />}
                     {activeView === 'history' && <SalesHistory sales={sales} pendingSales={pendingSales} currencySymbol="GH₵" />}
                     {userRole === 'admin' && activeView === 'financials' && <FinancialReport inventory={inventory} sales={sales} pendingSales={pendingSales} currencySymbol="GH₵" />}
@@ -1422,6 +1617,51 @@ const App: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* Floating Undo Toast for Instant Inventory Deletion */}
+      <AnimatePresence>
+        {pendingDelete && (
+          <motion.div
+            initial={{ opacity: 0, y: 40, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 30, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="fixed bottom-20 lg:bottom-6 right-4 left-4 sm:left-auto sm:right-6 sm:max-w-md z-40 bg-slate-900/95 text-white p-3.5 sm:p-4 rounded-2xl shadow-2xl border border-slate-700/80 backdrop-blur-md flex items-center justify-between gap-3"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0">
+                <Trash2 className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm font-semibold truncate">
+                  Deleted &ldquo;{pendingDelete.item.name}&rdquo;
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  Tap Undo within 6s to restore
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleUndoDelete}
+                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Undo</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDismissDeleteToast}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg transition-colors"
+                title="Dismiss and commit deletion"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Mobile Quick Bottom Navigation Bar */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800/80 text-slate-300 z-30 px-2 py-1.5 flex justify-around items-center shadow-2xl">

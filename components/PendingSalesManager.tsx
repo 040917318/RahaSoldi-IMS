@@ -19,12 +19,15 @@ export const PendingSalesManager: React.FC<PendingSalesManagerProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredSales = pendingSales.filter(s => 
-    s.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.recordedBy.toLowerCase().includes(searchTerm.toLowerCase())
+    (s.customerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (s.recordedBy || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const formatDate = (isoString: string) => {
-    return new Date(isoString).toLocaleString('en-GB', {
+  const formatDate = (isoString?: string) => {
+    if (!isoString) return 'N/A';
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return 'N/A';
+    return d.toLocaleString('en-GB', {
       day: '2-digit',
       month: 'short',
       hour: '2-digit',
@@ -70,7 +73,7 @@ export const PendingSalesManager: React.FC<PendingSalesManagerProps> = ({
                     <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-slate-800 dark:text-slate-100 leading-tight">{sale.customerName}</h4>
+                    <h4 className="font-bold text-slate-800 dark:text-slate-100 leading-tight">{sale.customerName || 'Guest Customer'}</h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center mt-1">
                       <Clock className="w-3 h-3 mr-1" /> {formatDate(sale.timestamp)}
                     </p>
@@ -78,20 +81,20 @@ export const PendingSalesManager: React.FC<PendingSalesManagerProps> = ({
                 </div>
                 <div className="text-right">
                   <span className="text-lg font-bold text-slate-800 dark:text-slate-100 font-mono">
-                    {currencySymbol}{sale.totalAmount.toFixed(2)}
+                    {currencySymbol}{(Number(sale.totalAmount) || 0).toFixed(2)}
                   </span>
                   <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Outstanding</p>
                 </div>
               </div>
 
               <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-3 mb-4 space-y-2">
-                {sale.items.map((item, idx) => (
+                {(Array.isArray(sale.items) ? sale.items : []).map((item, idx) => (
                   <div key={idx} className="flex justify-between text-sm">
                     <span className="text-slate-600 dark:text-slate-300">
-                      <span className="font-bold text-blue-600 dark:text-blue-400">{item.quantity}x</span> {item.name}
+                      <span className="font-bold text-blue-600 dark:text-blue-400">{item.quantity}x</span> {item.name || 'Item'}
                     </span>
                     <span className="text-slate-400 font-mono text-xs italic">
-                      @{currencySymbol}{item.priceAtSale.toFixed(2)}
+                      @{currencySymbol}{(Number(item.priceAtSale) || 0).toFixed(2)}
                     </span>
                   </div>
                 ))}

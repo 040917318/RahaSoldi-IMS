@@ -75,12 +75,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ inventory, sales, pendingS
     }).reverse();
 
     return last7Days.map(date => {
-      const daySales = allSales.filter(s => s.timestamp.startsWith(date));
+      const daySales = allSales.filter(s => (s.timestamp || '').startsWith(date));
       return {
         date: date.substring(5), // MM-DD for Axis label
         fullDate: date, // Full YYYY-MM-DD for tooltip
-        sales: daySales.reduce((acc, s) => acc + s.totalAmount, 0),
-        profit: daySales.reduce((acc, s) => acc + s.totalProfit, 0)
+        sales: daySales.reduce((acc, s) => acc + (Number(s.totalAmount) || 0), 0),
+        profit: daySales.reduce((acc, s) => acc + (Number(s.totalProfit) || 0), 0)
       };
     });
   }, [allSales]);
@@ -90,12 +90,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ inventory, sales, pendingS
     const itemSales: Record<string, { name: string, volume: number, revenue: number }> = {};
     
     allSales.forEach(sale => {
-      sale.items.forEach(item => {
+      (Array.isArray(sale.items) ? sale.items : []).forEach(item => {
         if (!itemSales[item.itemId]) {
-          itemSales[item.itemId] = { name: item.name, volume: 0, revenue: 0 };
+          itemSales[item.itemId] = { name: item.name || 'Item', volume: 0, revenue: 0 };
         }
-        itemSales[item.itemId].volume += item.quantity;
-        itemSales[item.itemId].revenue += (item.quantity * item.priceAtSale) - (item.discount || 0);
+        itemSales[item.itemId].volume += (Number(item.quantity) || 1);
+        itemSales[item.itemId].revenue += ((Number(item.quantity) || 1) * (Number(item.priceAtSale) || 0)) - (Number(item.discount) || 0);
       });
     });
 
