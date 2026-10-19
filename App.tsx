@@ -1,13 +1,15 @@
 
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { LayoutDashboard, Package, ShoppingCart, BrainCircuit, Menu, X, History, Wifi, WifiOff, Loader2, PieChart, Truck, LogOut, Shield, RefreshCw, Moon, Sun, FileText, Clock, ChevronRight, RotateCcw, Trash2 } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, BrainCircuit, Menu, X, History, Wifi, WifiOff, Loader2, PieChart, Truck, LogOut, Shield, RefreshCw, Moon, Sun, FileText, Clock, ChevronRight, RotateCcw, Trash2, Printer } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { InventoryItem, SaleRecord, SaleItem, ViewState, ExpenseRecord, UserRole, AuditLog, PendingSale } from './types';
 import { supabase } from './services/supabaseClient';
 import { Session } from '@supabase/supabase-js';
+
 import { 
+
   initImageCache, 
   saveCachedImage, 
   getCachedImageSync, 
@@ -19,15 +21,15 @@ import {
   pushLocalImagesToDatabase 
 } from './services/databaseSchemaHelper';
 
-// Lazy load components for better performance
-const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ default: module.Dashboard })));
-const InventoryManager = lazy(() => import('./components/InventoryManager').then(module => ({ default: module.InventoryManager })));
-const SalesTerminal = lazy(() => import('./components/SalesTerminal').then(module => ({ default: module.SalesTerminal })));
-const SalesHistory = lazy(() => import('./components/SalesHistory').then(module => ({ default: module.SalesHistory })));
-const FinancialReport = lazy(() => import('./components/FinancialReport').then(module => ({ default: module.FinancialReport })));
-const AIInsights = lazy(() => import('./components/AIInsights').then(module => ({ default: module.AIInsights })));
-const InvoiceReceiptGenerator = lazy(() => import('./components/InvoiceReceiptGenerator').then(module => ({ default: module.InvoiceReceiptGenerator })));
-const PendingSalesManager = lazy(() => import('./components/PendingSalesManager').then(module => ({ default: module.PendingSalesManager })));
+// Import view components directly for instant switching, offline readiness, and zero chunk fetch errors
+import { Dashboard } from './components/Dashboard';
+import { InventoryManager } from './components/InventoryManager';
+import { SalesTerminal } from './components/SalesTerminal';
+import { SalesHistory } from './components/SalesHistory';
+import { FinancialReport } from './components/FinancialReport';
+import { AIInsights } from './components/AIInsights';
+import { InvoiceReceiptGenerator } from './components/InvoiceReceiptGenerator';
+import { PendingSalesManager } from './components/PendingSalesManager';
 
 // Custom Cedi Icon Component
 const CediSign = ({ className }: { className?: string }) => (
@@ -49,7 +51,9 @@ const CediSign = ({ className }: { className?: string }) => (
 const App: React.FC = () => {
   // Auth State
   const [session, setSession] = useState<Session | null>(null);
+
   const [authLoading, setAuthLoading] = useState(true);
+
 
   // State Management
   const [activeView, setActiveView] = useState<ViewState>(() => {
@@ -292,211 +296,9 @@ const App: React.FC = () => {
     setPendingActions(queue.length);
   }, []);
 
-  // Resilient Persist Helper (Protects against DOMException QuotaExceededError)
+  // Persist Helper
   const persist = (key: string, data: any) => {
-    try {
-      if (key === 'sales' && Array.isArray(data)) {
-        // Strip heavy base64 images from sales items and cap local storage to most recent 100 sales
-        const sanitized = data.slice(0, 100).map(sale => ({
-          ...sale,
-          items: Array.isArray(sale.items)
-            ? sale.items.map((i: any) => ({
-                itemId: i.itemId,
-                name: i.name || 'Unnamed Item',
-                quantity: Number(i.quantity) || 1,
-                priceAtSale: Number(i.priceAtSale) || 0,
-                costAtSale: Number(i.costAtSale) || 0,
-                discount: Number(i.discount) || 0,
-                imageUrl: (typeof i.imageUrl === 'string' && !i.imageUrl.startsWith('data:')) ? i.imageUrl : undefined
-              }))
-            : []
-        }));
-        localStorage.setItem(key, JSON.stringify(sanitized));
-        return;
-      }
-
-      if (key === 'inventory' && Array.isArray(data)) {
-        // Strip base64 images from local storage copy; images are securely in IndexedDB via imageCache
-        const sanitized = data.map(item => ({
-          ...item,
-          imageUrl: (typeof item.imageUrl === 'string' && !item.imageUrl.startsWith('data:')) ? item.imageUrl : undefined
-        }));
-        localStorage.setItem(key, JSON.stringify(sanitized));
-        return;
-      }
-
-      if (key === 'pendingSales' && Array.isArray(data)) {
-        const sanitized = data.map(ps => ({
-          ...ps,
-          items: Array.isArray(ps.items)
-            ? ps.items.map((i: any) => ({
-                itemId: i.itemId,
-                name: i.name || 'Unnamed Item',
-                quantity: Number(i.quantity) || 1,
-                priceAtSale: Number(i.priceAtSale) || 0,
-                costAtSale: Number(i.costAtSale) || 0,
-                discount: Number(i.discount) || 0,
-                imageUrl: (typeof i.imageUrl === 'string' && !i.imageUrl.startsWith('data:')) ? i.imageUrl : undefined
-              }))
-            : []
-        }));
-        localStorage.setItem(key, JSON.stringify(sanitized));
-        return;
-      }
-
       localStorage.setItem(key, JSON.stringify(data));
-    } catch (err) {
-      console.warn(`[Storage] Failed to persist ${key} to localStorage:`, err);
-      // Secondary fallback attempt: prune older sales
-      try {
-        if (key === 'sales' && Array.isArray(data)) {
-          const minimal = data.slice(0, 30).map(s => ({
-            id: s.id,
-            totalAmount: Number(s.totalAmount) || 0,
-            totalProfit: Number(s.totalProfit) || 0,
-            recordedBy: s.recordedBy,
-            timestamp: s.timestamp,
-            items: (s.items || []).map((i: any) => ({
-              itemId: i.itemId,
-              name: i.name,
-              quantity: i.quantity,
-              priceAtSale: i.priceAtSale
-            }))
-          }));
-          localStorage.setItem(key, JSON.stringify(minimal));
-        }
-      } catch (inner) {
-        console.warn(`[Storage] Quota exceeded recovery failed for ${key}`, inner);
-      }
-    }
-  };
-
-  // Schema-Adaptive Cloud Helpers for Sales and Pending Sales
-  const saveSaleToCloud = async (sale: SaleRecord): Promise<void> => {
-    const cleanItems = (sale.items || []).map(i => ({
-      itemId: i.itemId,
-      name: i.name || 'Unnamed Item',
-      quantity: Number(i.quantity) || 1,
-      priceAtSale: Number(i.priceAtSale) || 0,
-      costAtSale: Number(i.costAtSale) || 0,
-      discount: Number(i.discount) || 0,
-      imageUrl: (typeof i.imageUrl === 'string' && !i.imageUrl.startsWith('data:')) ? i.imageUrl : undefined
-    }));
-
-    // Primary Attempt: standard columns with timestamp
-    const primaryPayload = {
-      id: sale.id,
-      items: cleanItems,
-      total_amount: Number(sale.totalAmount) || 0,
-      total_profit: Number(sale.totalProfit) || 0,
-      recorded_by: sale.recordedBy || 'Staff',
-      timestamp: sale.timestamp
-    };
-
-    const { error: err1 } = await supabase.from('sales').insert([primaryPayload]);
-    if (!err1) return;
-
-    console.warn("Primary sale insert failed, trying schema-adaptive fallbacks:", err1);
-
-    // Fallback 1: Try with created_at instead of timestamp (frequent Supabase table default)
-    const { error: err2 } = await supabase.from('sales').insert([{
-      id: sale.id,
-      items: cleanItems,
-      total_amount: Number(sale.totalAmount) || 0,
-      total_profit: Number(sale.totalProfit) || 0,
-      recorded_by: sale.recordedBy || 'Staff',
-      created_at: sale.timestamp
-    }]);
-    if (!err2) return;
-
-    // Fallback 2: Try minimal with created_at (no recorded_by / total_profit)
-    const { error: err3 } = await supabase.from('sales').insert([{
-      id: sale.id,
-      items: cleanItems,
-      total_amount: Number(sale.totalAmount) || 0,
-      created_at: sale.timestamp
-    }]);
-    if (!err3) return;
-
-    // Fallback 3: Try minimal with timestamp
-    const { error: err4 } = await supabase.from('sales').insert([{
-      id: sale.id,
-      items: cleanItems,
-      total_amount: Number(sale.totalAmount) || 0,
-      timestamp: sale.timestamp
-    }]);
-    if (!err4) return;
-
-    // Fallback 4: Try stringified items if the items column in Postgres is TEXT instead of JSONB
-    const { error: err5 } = await supabase.from('sales').insert([{
-      id: sale.id,
-      items: JSON.stringify(cleanItems),
-      total_amount: Number(sale.totalAmount) || 0,
-      created_at: sale.timestamp
-    }]);
-    if (!err5) return;
-
-    // Fallback 5: CamelCase totalAmount
-    const { error: err6 } = await supabase.from('sales').insert([{
-      id: sale.id,
-      items: cleanItems,
-      totalAmount: Number(sale.totalAmount) || 0
-    }]);
-    if (!err6) return;
-
-    // If all attempts failed, throw so the caller can queue it for offline/background sync
-    throw err1;
-  };
-
-  const savePendingSaleToCloud = async (pendingSale: PendingSale): Promise<void> => {
-    const cleanItems = (pendingSale.items || []).map(i => ({
-      itemId: i.itemId,
-      name: i.name || 'Unnamed Item',
-      quantity: Number(i.quantity) || 1,
-      priceAtSale: Number(i.priceAtSale) || 0,
-      costAtSale: Number(i.costAtSale) || 0,
-      discount: Number(i.discount) || 0,
-      imageUrl: (typeof i.imageUrl === 'string' && !i.imageUrl.startsWith('data:')) ? i.imageUrl : undefined
-    }));
-
-    const primaryPayload = {
-      id: pendingSale.id,
-      customer_name: pendingSale.customerName,
-      items: cleanItems,
-      total_amount: Number(pendingSale.totalAmount) || 0,
-      total_profit: Number(pendingSale.totalProfit) || 0,
-      recorded_by: pendingSale.recordedBy || 'Staff',
-      timestamp: pendingSale.timestamp,
-      notes: pendingSale.notes || ''
-    };
-
-    const { error: err1 } = await supabase.from('pending_sales').insert([primaryPayload]);
-    if (!err1) return;
-
-    console.warn("Primary pending sale insert failed, trying schema-adaptive fallbacks:", err1);
-
-    // Fallback 1: created_at instead of timestamp
-    const { error: err2 } = await supabase.from('pending_sales').insert([{
-      id: pendingSale.id,
-      customer_name: pendingSale.customerName,
-      items: cleanItems,
-      total_amount: Number(pendingSale.totalAmount) || 0,
-      total_profit: Number(pendingSale.totalProfit) || 0,
-      created_at: pendingSale.timestamp,
-      notes: pendingSale.notes || ''
-    }]);
-    if (!err2) return;
-
-    // Fallback 2: minimal fields
-    const { error: err3 } = await supabase.from('pending_sales').insert([{
-      id: pendingSale.id,
-      customer_name: pendingSale.customerName,
-      items: cleanItems,
-      total_amount: Number(pendingSale.totalAmount) || 0
-    }]);
-    if (!err3) return;
-
-    throw err1;
   };
 
   // Queue Action Helper
@@ -539,19 +341,79 @@ const App: React.FC = () => {
                         break;
                     case 'SALE': {
                         const { sale, items } = action.payload;
-                        await saveSaleToCloud(sale);
+                        const { error: saleErr } = await supabase.from('sales').insert([{
+                            id: sale.id,
+                            items: sale.items,
+                            total_amount: sale.totalAmount,
+                            total_profit: sale.totalProfit,
+                            recorded_by: sale.recordedBy,
+                            timestamp: sale.timestamp
+                        }]);
+                        
+                        if (saleErr) {
+                            // Try fallback without recorded_by
+                            const { error: fErr } = await supabase.from('sales').insert([{
+                                id: sale.id,
+                                items: sale.items,
+                                total_amount: sale.totalAmount,
+                                total_profit: sale.totalProfit,
+                                timestamp: sale.timestamp
+                            }]);
+                            if (fErr) throw fErr;
+                        }
                         await updateSupabaseInventory(items);
                         break;
                     }
                     case 'DEFER_SALE': {
                         const { pendingSale: pSale, items: deferredItems } = action.payload;
-                        await savePendingSaleToCloud(pSale);
+                        const { error: deferErr } = await supabase.from('pending_sales').insert([{
+                            id: pSale.id,
+                            customer_name: pSale.customerName,
+                            items: pSale.items,
+                            total_amount: pSale.totalAmount,
+                            total_profit: pSale.totalProfit,
+                            recorded_by: pSale.recordedBy,
+                            timestamp: pSale.timestamp,
+                            notes: pSale.notes
+                        }]);
+                        
+                        if (deferErr) {
+                            // Try fallback
+                            const { error: fErr } = await supabase.from('pending_sales').insert([{
+                                id: pSale.id,
+                                customer_name: pSale.customerName,
+                                items: pSale.items,
+                                total_amount: pSale.totalAmount,
+                                total_profit: pSale.totalProfit,
+                                timestamp: pSale.timestamp
+                            }]);
+                            if (fErr) throw fErr;
+                        }
                         await updateSupabaseInventory(deferredItems);
                         break;
                     }
                     case 'COMPLETE_PENDING': {
                         const { saleId, finalizedSale } = action.payload;
-                        await saveSaleToCloud(finalizedSale);
+                        const { error: cpErr } = await supabase.from('sales').insert([{
+                            id: finalizedSale.id,
+                            items: finalizedSale.items,
+                            total_amount: finalizedSale.totalAmount,
+                            total_profit: finalizedSale.totalProfit,
+                            recorded_by: finalizedSale.recordedBy,
+                            timestamp: finalizedSale.timestamp
+                        }]);
+                        
+                        if (cpErr) {
+                            // Try fallback
+                            const { error: fErr } = await supabase.from('sales').insert([{
+                                id: finalizedSale.id,
+                                items: finalizedSale.items,
+                                total_amount: finalizedSale.totalAmount,
+                                total_profit: finalizedSale.totalProfit,
+                                timestamp: finalizedSale.timestamp
+                            }]);
+                            if (fErr) throw fErr;
+                        }
                         await supabase.from('pending_sales').delete().eq('id', saleId);
                         break;
                     }
@@ -603,50 +465,68 @@ const App: React.FC = () => {
 
 
   const updateSupabaseInventory = async (items: SaleItem[], isRestock = false) => {
-    try {
-      for (const item of items) {
-        const qtyKey = dbKeys.quantity || 'quantity';
-        const updateKey = dbKeys.lastUpdated || 'last_updated';
-        
-        const { data: curr, error: selErr } = await supabase.from('inventory').select(qtyKey).eq('id', item.itemId).maybeSingle();
-        if (curr) {
-            const currentQty = Number((curr as any)[qtyKey] ?? 0);
-            const newQty = isRestock ? currentQty + item.quantity : currentQty - item.quantity;
-            const payload: any = {};
-            payload[qtyKey] = newQty;
-            payload[updateKey] = new Date().toISOString();
-            
-            const { error: updErr } = await supabase.from('inventory').update(payload).eq('id', item.itemId);
-            if (updErr) {
-              // Try fallback with only quantity update if last_updated column differs
-              await supabase.from('inventory').update({ [qtyKey]: newQty }).eq('id', item.itemId);
-            }
-        }
+    for (const item of items) {
+      const qtyKey = dbKeys.quantity || 'quantity';
+      const updateKey = dbKeys.lastUpdated || 'last_updated';
+      
+      const { data: curr } = await supabase.from('inventory').select(qtyKey).eq('id', item.itemId).single();
+      if (curr) {
+          const currentQty = Number((curr as any)[qtyKey] ?? 0);
+          const newQty = isRestock ? currentQty + item.quantity : currentQty - item.quantity;
+          const payload: any = {};
+          payload[qtyKey] = newQty;
+          payload[updateKey] = new Date().toISOString();
+          
+          await supabase.from('inventory').update(payload).eq('id', item.itemId);
       }
-    } catch (e) {
-      console.warn("Could not sync inventory quantity to supabase:", e);
     }
   };
 
-  // Fetch Data from Supabase
-  const fetchData = async () => {
-    if (!session) return;
-    if (!isOnline) return; 
+  const isFetchingRef = useRef(false);
 
-    setLoading(true);
+  // Preload heavy views during idle time to make smartphone navigation instant
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const scheduleIdle = (window as any).requestIdleCallback || ((cb: any) => setTimeout(cb, 400));
+      scheduleIdle(() => {
+        import('./components/SalesTerminal');
+        import('./components/InventoryManager');
+        import('./components/SalesHistory');
+        import('./components/Dashboard');
+      });
+    }
+  }, []);
+
+  // Fetch Data from Supabase concurrently with instant optimistic cache support
+  const fetchData = async () => {
+    if (!session || !isOnline) return;
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+
+    // Only display blocking loader if there is no local cached data at all
+    const hasCachedData = inventory.length > 0 || sales.length > 0 || pendingSales.length > 0;
+    if (!hasCachedData) {
+      setLoading(true);
+    }
     setFetchError(null);
     
-    // Fetch Inventory separately
-    try {
-      // Proactively check schema image support
-      checkImageUrlColumnSupport().then(res => {
-        setHasDbImageSupport(res.hasImageUrlColumn);
-      }).catch(e => console.warn('Schema check notice:', e));
+    // Proactively check schema image support in background
+    checkImageUrlColumnSupport().then(res => {
+      setHasDbImageSupport(res.hasImageUrlColumn);
+    }).catch(e => console.warn('Schema check notice:', e));
 
-      const { data: invData, error: invErr } = await supabase.from('inventory').select('*').limit(1000);
-      if (invErr) throw invErr;
-      if (invData && invData.length > 0) {
-          // Detect actual DB keys from the first record
+    try {
+      // Execute all 3 table queries concurrently in parallel over HTTP/2
+      const [invRes, salesRes, pendingRes] = await Promise.allSettled([
+        supabase.from('inventory').select('*').limit(1000),
+        supabase.from('sales').select('*'),
+        supabase.from('pending_sales').select('*')
+      ]);
+
+      // 1. Process Inventory
+      if (invRes.status === 'fulfilled' && !invRes.value.error && invRes.value.data) {
+        const invData = invRes.value.data;
+        if (invData.length > 0) {
           const first = invData[0];
           const detected: { [key: string]: string } = {};
           
@@ -668,109 +548,78 @@ const App: React.FC = () => {
           setDbKeys(detected);
 
           const formattedInv: InventoryItem[] = invData.map((i: any) => {
-              const costPrice = Number(i[detected.costPrice] ?? 0);
-              const salesPrice = Number(i[detected.salesPrice] ?? 0);
-              const dbImg = i[detected.imageUrl] || i.image_url || i.imageUrl || i.image;
-              
-              // Resilient local cache merge: if DB doesn't have an image, preserve existing local cached image
-              const cachedImg = getCachedImageSync(i.id);
-              const finalImg = (typeof dbImg === 'string' && dbImg.trim().length > 0)
-                ? dbImg
-                : cachedImg;
+            const costPrice = Number(i[detected.costPrice] ?? 0);
+            const salesPrice = Number(i[detected.salesPrice] ?? 0);
+            const dbImg = i[detected.imageUrl] || i.image_url || i.imageUrl || i.image;
+            
+            const cachedImg = getCachedImageSync(i.id);
+            const finalImg = (typeof dbImg === 'string' && dbImg.trim().length > 0)
+              ? dbImg
+              : cachedImg;
 
-              if (finalImg && i.id) {
-                saveCachedImage(i.id, finalImg);
-              }
+            if (finalImg && i.id) {
+              saveCachedImage(i.id, finalImg);
+            }
 
-              return {
-                  id: i.id,
-                  name: i.name,
-                  category: i.category,
-                  quantity: Number(i[detected.quantity] ?? 0),
-                  costPrice: isNaN(costPrice) ? 0 : costPrice,
-                  salesPrice: isNaN(salesPrice) ? 0 : salesPrice,
-                  lowStockThreshold: Number(i[detected.lowStockThreshold] ?? 5),
-                  lastUpdated: i[detected.lastUpdated] ?? new Date().toISOString(),
-                  imageUrl: finalImg || undefined
-              };
+            return {
+              id: i.id,
+              name: i.name,
+              category: i.category,
+              quantity: Number(i[detected.quantity] ?? 0),
+              costPrice: isNaN(costPrice) ? 0 : costPrice,
+              salesPrice: isNaN(salesPrice) ? 0 : salesPrice,
+              lowStockThreshold: Number(i[detected.lowStockThreshold] ?? 5),
+              lastUpdated: i[detected.lastUpdated] ?? new Date().toISOString(),
+              imageUrl: finalImg || undefined
+            };
           });
           const mergedInv = mergeInventoryWithLocalCache(formattedInv);
           setInventory(mergedInv);
           persist('inventory', mergedInv);
-      } else if (invData) {
+        } else {
           setInventory([]);
           persist('inventory', []);
+        }
+      }
+
+      // 2. Process Sales
+      if (salesRes.status === 'fulfilled' && !salesRes.value.error && salesRes.value.data) {
+        const salesData = salesRes.value.data;
+        const formattedSales: SaleRecord[] = salesData.map((s: any) => ({
+          id: s.id,
+          items: s.items || [],
+          totalAmount: Number(s.total_amount ?? s.totalAmount ?? 0),
+          totalProfit: Number(s.total_profit ?? s.totalProfit ?? 0),
+          recordedBy: s.recorded_by ?? s.recordedBy ?? 'N/A',
+          timestamp: s.timestamp ?? s.created_at ?? s.createdAt ?? new Date().toISOString()
+        })).sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        
+        setSales(formattedSales);
+        persist('sales', formattedSales);
+      }
+
+      // 3. Process Pending Sales
+      if (pendingRes.status === 'fulfilled' && !pendingRes.value.error && pendingRes.value.data) {
+        const pendingData = pendingRes.value.data;
+        const formattedPending: PendingSale[] = pendingData.map((p: any) => ({
+          id: p.id,
+          customerName: p.customer_name ?? p.customerName ?? 'Guest',
+          items: p.items || [],
+          totalAmount: Number(p.total_amount ?? p.totalAmount ?? 0),
+          totalProfit: Number(p.total_profit ?? p.totalProfit ?? 0),
+          recordedBy: p.recorded_by ?? p.recordedBy ?? 'N/A',
+          timestamp: p.timestamp ?? p.created_at ?? p.createdAt ?? new Date().toISOString(),
+          notes: p.notes
+        })).sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        
+        setPendingSales(formattedPending);
+        persist('pendingSales', formattedPending);
       }
     } catch (error: any) {
-      console.error("Inventory fetch error:", error);
-      // We don't block the whole app for one table failure
-    }
-
-    // Fetch Sales separately with resilient parsing
-    try {
-      const { data: salesData, error: salesErr } = await supabase.from('sales').select('*');
-      if (salesErr) throw salesErr;
-      if (salesData) {
-          const formattedSales: SaleRecord[] = salesData.map(s => {
-              let parsedItems = s.items;
-              if (typeof parsedItems === 'string') {
-                try { parsedItems = JSON.parse(parsedItems); } catch { parsedItems = []; }
-              }
-              if (!Array.isArray(parsedItems)) parsedItems = [];
-
-              const totalAmount = Number(s.total_amount ?? s.totalAmount ?? 0);
-              const totalProfit = Number(s.total_profit ?? s.totalProfit ?? 0);
-              return {
-                  id: s.id || crypto.randomUUID(),
-                  items: parsedItems,
-                  totalAmount: isNaN(totalAmount) ? 0 : totalAmount,
-                  totalProfit: isNaN(totalProfit) ? 0 : totalProfit,
-                  recordedBy: s.recorded_by ?? s.recordedBy ?? 'Staff',
-                  timestamp: s.timestamp ?? s.created_at ?? s.createdAt ?? new Date().toISOString()
-              };
-          }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-          
-          setSales(formattedSales);
-          persist('sales', formattedSales);
-      }
-    } catch (error: any) {
-      console.error("Sales fetch error:", error);
-    }
-
-    // Fetch Pending Sales separately with resilient parsing
-    try {
-      const { data: pendingData, error: pendingErr } = await supabase.from('pending_sales').select('*');
-      if (pendingErr) throw pendingErr;
-
-      if (pendingData) {
-          const formattedPending: PendingSale[] = pendingData.map(p => {
-              let parsedItems = p.items;
-              if (typeof parsedItems === 'string') {
-                try { parsedItems = JSON.parse(parsedItems); } catch { parsedItems = []; }
-              }
-              if (!Array.isArray(parsedItems)) parsedItems = [];
-
-              const totalAmount = Number(p.total_amount ?? p.totalAmount ?? 0);
-              const totalProfit = Number(p.total_profit ?? p.totalProfit ?? 0);
-              return {
-                  id: p.id || crypto.randomUUID(),
-                  customerName: p.customer_name ?? p.customerName ?? 'Guest',
-                  items: parsedItems,
-                  totalAmount: isNaN(totalAmount) ? 0 : totalAmount,
-                  totalProfit: isNaN(totalProfit) ? 0 : totalProfit,
-                  recordedBy: p.recorded_by ?? p.recordedBy ?? 'Staff',
-                  timestamp: p.timestamp ?? p.created_at ?? p.createdAt ?? new Date().toISOString(),
-                  notes: p.notes
-              };
-          }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-          
-          setPendingSales(formattedPending);
-          persist('pendingSales', formattedPending);
-      }
-    } catch (error: any) {
-      console.error("Pending sales fetch error:", error);
+      console.error("Concurrent fetch error:", error);
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   };
 
@@ -993,38 +842,26 @@ const App: React.FC = () => {
   };
 
   const handleCompleteSale = async (items: SaleItem[]): Promise<SaleRecord> => {
-    // Sanitize sale items: ensure proper numbers and strip out any base64 data URLs to prevent storage/payload errors
-    const sanitizedItems: SaleItem[] = (items || []).map(item => ({
-      itemId: item.itemId,
-      name: item.name || 'Unnamed Item',
-      quantity: Number(item.quantity) || 1,
-      priceAtSale: Number(item.priceAtSale) || 0,
-      costAtSale: Number(item.costAtSale) || 0,
-      discount: Number(item.discount) || 0,
-      imageUrl: (typeof item.imageUrl === 'string' && !item.imageUrl.startsWith('data:')) ? item.imageUrl : undefined
-    }));
-
-    const totalAmount = sanitizedItems.reduce((sum, item) => sum + ((item.quantity * item.priceAtSale) - (item.discount || 0)), 0);
-    const totalCost = sanitizedItems.reduce((sum, item) => sum + (item.quantity * item.costAtSale), 0);
-    const nowIso = new Date().toISOString();
+    const totalAmount = items.reduce((sum, item) => sum + ((item.quantity * item.priceAtSale) - (item.discount || 0)), 0);
+    const totalCost = items.reduce((sum, item) => sum + (item.quantity * item.costAtSale), 0);
     
     const newSale: SaleRecord = {
       id: crypto.randomUUID(),
-      items: sanitizedItems,
+      items,
       totalAmount,
       totalProfit: totalAmount - totalCost,
-      recordedBy: session?.user?.email || 'Staff',
-      timestamp: nowIso
+      recordedBy: session?.user?.email || 'Unknown',
+      timestamp: new Date().toISOString()
     };
 
-    // Update Local Inventory & Sales state
+    // Update Local Inventory & Sales
     const newInventory = [...inventory];
-    sanitizedItems.forEach(saleItem => {
+    items.forEach(saleItem => {
       const productIndex = newInventory.findIndex(p => p.id === saleItem.itemId);
       if (productIndex > -1) {
         const oldQty = newInventory[productIndex].quantity;
         const newQty = oldQty - saleItem.quantity;
-        newInventory[productIndex] = { ...newInventory[productIndex], quantity: newQty, lastUpdated: nowIso };
+        newInventory[productIndex] = { ...newInventory[productIndex], quantity: newQty, lastUpdated: new Date().toISOString() };
         logAction(saleItem.itemId, saleItem.name, 'sale', `Sold ${saleItem.quantity} units. Stock: ${oldQty} -> ${newQty}`);
       }
     });
@@ -1037,56 +874,70 @@ const App: React.FC = () => {
     persist('sales', newSales);
 
     if (!isOnline) {
-      queueAction({ type: 'SALE', payload: { sale: newSale, items: sanitizedItems } });
-      return newSale;
+        queueAction({ type: 'SALE', payload: { sale: newSale, items } });
+        return newSale;
     }
 
     try {
-      await saveSaleToCloud(newSale);
-      await updateSupabaseInventory(sanitizedItems);
-    } catch (err: any) {
-      console.warn("Sale cloud sync failed; safely queued for offline/background sync:", err);
-      queueAction({ type: 'SALE', payload: { sale: newSale, items: sanitizedItems } });
-      setFetchError(`Cloud sync: ${err?.message || 'Queued for background sync'}`);
+        const saleData = {
+            id: newSale.id,
+            items: newSale.items,
+            total_amount: newSale.totalAmount, 
+            total_profit: newSale.totalProfit,
+            recorded_by: newSale.recordedBy,
+            timestamp: newSale.timestamp
+        };
+
+        const { error: saleError } = await supabase.from('sales').insert([saleData]);
+        
+        if (saleError) {
+             console.warn("Primary sale insert failed, trying minimal fallback:", saleError);
+             // Fallback: Try without recorded_by or other potentially missing columns
+             const { error: fallbackError } = await supabase.from('sales').insert([{
+                 id: newSale.id,
+                 items: newSale.items,
+                 total_amount: newSale.totalAmount,
+                 total_profit: newSale.totalProfit,
+                 timestamp: newSale.timestamp
+             }]);
+             
+             if (fallbackError) throw fallbackError;
+        }
+
+        await updateSupabaseInventory(items);
+    } catch (err) {
+        console.error("Error in handleCompleteSale:", err);
+        // Don't set error if it's a known schema issue we can live with, 
+        // but tell user we couldn't save to cloud
+        setFetchError(err instanceof Error ? err.message : "Failed to sync sale to cloud");
     }
     
     return newSale;
   };
 
   const handleDeferSale = async (items: SaleItem[], customerName: string, notes: string): Promise<PendingSale> => {
-    const sanitizedItems: SaleItem[] = (items || []).map(item => ({
-      itemId: item.itemId,
-      name: item.name || 'Unnamed Item',
-      quantity: Number(item.quantity) || 1,
-      priceAtSale: Number(item.priceAtSale) || 0,
-      costAtSale: Number(item.costAtSale) || 0,
-      discount: Number(item.discount) || 0,
-      imageUrl: (typeof item.imageUrl === 'string' && !item.imageUrl.startsWith('data:')) ? item.imageUrl : undefined
-    }));
-
-    const totalAmount = sanitizedItems.reduce((sum, item) => sum + ((item.quantity * item.priceAtSale) - (item.discount || 0)), 0);
-    const totalCost = sanitizedItems.reduce((sum, item) => sum + (item.quantity * item.costAtSale), 0);
-    const nowIso = new Date().toISOString();
+    const totalAmount = items.reduce((sum, item) => sum + ((item.quantity * item.priceAtSale) - (item.discount || 0)), 0);
+    const totalCost = items.reduce((sum, item) => sum + (item.quantity * item.costAtSale), 0);
     
     const pendingSale: PendingSale = {
       id: crypto.randomUUID(),
-      customerName: (customerName || 'Guest').trim(),
-      items: sanitizedItems,
+      customerName,
+      items,
       totalAmount,
       totalProfit: totalAmount - totalCost,
-      recordedBy: session?.user?.email || 'Staff',
-      timestamp: nowIso,
-      notes: notes || ''
+      recordedBy: session?.user?.email || 'Unknown',
+      timestamp: new Date().toISOString(),
+      notes
     };
 
-    // Update Local Inventory & Pending Sales state
+    // Update Local Inventory & Pending Sales
     const newInventory = [...inventory];
-    sanitizedItems.forEach(saleItem => {
+    items.forEach(saleItem => {
       const productIndex = newInventory.findIndex(p => p.id === saleItem.itemId);
       if (productIndex > -1) {
         const oldQty = newInventory[productIndex].quantity;
         const newQty = oldQty - saleItem.quantity;
-        newInventory[productIndex] = { ...newInventory[productIndex], quantity: newQty, lastUpdated: nowIso };
+        newInventory[productIndex] = { ...newInventory[productIndex], quantity: newQty, lastUpdated: new Date().toISOString() };
         logAction(saleItem.itemId, saleItem.name, 'sale', `Deferred sale to ${customerName}. Stock: ${oldQty} -> ${newQty}`);
       }
     });
@@ -1099,17 +950,42 @@ const App: React.FC = () => {
     persist('pendingSales', newPending);
 
     if (!isOnline) {
-      queueAction({ type: 'DEFER_SALE', payload: { pendingSale, items: sanitizedItems } });
-      return pendingSale;
+        queueAction({ type: 'DEFER_SALE', payload: { pendingSale, items } });
+        return pendingSale;
     }
 
     try {
-      await savePendingSaleToCloud(pendingSale);
-      await updateSupabaseInventory(sanitizedItems);
-    } catch (err: any) {
-      console.warn("Deferred sale cloud sync failed; safely queued for background sync:", err);
-      queueAction({ type: 'DEFER_SALE', payload: { pendingSale, items: sanitizedItems } });
-      setFetchError(`Cloud sync: ${err?.message || 'Queued for background sync'}`);
+        const pendingSaleDto = {
+          id: pendingSale.id,
+          customer_name: pendingSale.customerName,
+          items: pendingSale.items,
+          total_amount: pendingSale.totalAmount,
+          total_profit: pendingSale.totalProfit,
+          recorded_by: pendingSale.recordedBy,
+          timestamp: pendingSale.timestamp,
+          notes: pendingSale.notes
+        };
+
+        const { error: deferError } = await supabase.from('pending_sales').insert([pendingSaleDto]);
+        
+        if (deferError) {
+            console.warn("Primary pending sale insert failed, trying minimal fallback:", deferError);
+            const { error: fallbackError } = await supabase.from('pending_sales').insert([{
+                id: pendingSale.id,
+                customer_name: pendingSale.customerName,
+                items: pendingSale.items,
+                total_amount: pendingSale.totalAmount,
+                total_profit: pendingSale.totalProfit,
+                timestamp: pendingSale.timestamp
+            }]);
+            
+            if (fallbackError) throw fallbackError;
+        }
+        
+        await updateSupabaseInventory(items);
+    } catch (err) {
+        console.error("Error in handleDeferSale:", err);
+        setFetchError(err instanceof Error ? err.message : "Failed to defer sale to cloud");
     }
     
     return pendingSale;
@@ -1119,22 +995,12 @@ const App: React.FC = () => {
     const pendingSale = pendingSales.find(s => s.id === saleId);
     if (!pendingSale) return;
 
-    const sanitizedItems: SaleItem[] = (pendingSale.items || []).map(item => ({
-      itemId: item.itemId,
-      name: item.name || 'Unnamed Item',
-      quantity: Number(item.quantity) || 1,
-      priceAtSale: Number(item.priceAtSale) || 0,
-      costAtSale: Number(item.costAtSale) || 0,
-      discount: Number(item.discount) || 0,
-      imageUrl: (typeof item.imageUrl === 'string' && !item.imageUrl.startsWith('data:')) ? item.imageUrl : undefined
-    }));
-
     const finalizedSale: SaleRecord = {
       id: crypto.randomUUID(),
-      items: sanitizedItems,
-      totalAmount: Number(pendingSale.totalAmount) || 0,
-      totalProfit: Number(pendingSale.totalProfit) || 0,
-      recordedBy: session?.user?.email || 'Staff',
+      items: pendingSale.items,
+      totalAmount: pendingSale.totalAmount,
+      totalProfit: pendingSale.totalProfit,
+      recordedBy: session?.user?.email || 'Unknown',
       timestamp: new Date().toISOString()
     };
 
@@ -1148,20 +1014,41 @@ const App: React.FC = () => {
     persist('pendingSales', newPending);
 
     if (!isOnline) {
-      queueAction({ type: 'COMPLETE_PENDING', payload: { saleId, finalizedSale } });
-      return;
+        queueAction({ type: 'COMPLETE_PENDING', payload: { saleId, finalizedSale } });
+        return;
     }
 
     try {
-      await saveSaleToCloud(finalizedSale);
-      const { error: deleteError } = await supabase.from('pending_sales').delete().eq('id', saleId);
-      if (deleteError) {
-        console.warn("Error deleting finalized pending sale from DB:", deleteError);
-      }
-    } catch (err: any) {
-      console.warn("Complete pending sale cloud sync failed; safely queued for background sync:", err);
-      queueAction({ type: 'COMPLETE_PENDING', payload: { saleId, finalizedSale } });
-      setFetchError(`Cloud sync: ${err?.message || 'Queued for background sync'}`);
+        const saleData = {
+            id: finalizedSale.id,
+            items: finalizedSale.items,
+            total_amount: finalizedSale.totalAmount,
+            total_profit: finalizedSale.totalProfit,
+            recorded_by: finalizedSale.recordedBy,
+            timestamp: finalizedSale.timestamp
+        };
+
+        const { error: saleError } = await supabase.from('sales').insert([saleData]);
+        if (saleError) {
+            console.warn("Finalizing pending sale failed, trying minimal fallback:", saleError);
+            const { error: fallbackError } = await supabase.from('sales').insert([{
+                id: finalizedSale.id,
+                items: finalizedSale.items,
+                total_amount: finalizedSale.totalAmount,
+                total_profit: finalizedSale.totalProfit,
+                timestamp: finalizedSale.timestamp
+            }]);
+            
+            if (fallbackError) throw fallbackError;
+        }
+        const { error: deleteError } = await supabase.from('pending_sales').delete().eq('id', saleId);
+        if (deleteError) {
+            console.error("Error deleting from pending_sales after completion:", deleteError);
+            throw new Error(`Sale finalized but could not remove from pending: ${deleteError.message}`);
+        }
+    } catch (err) {
+        console.error("Error in handleCompletePendingSale:", err);
+        setFetchError(err instanceof Error ? err.message : "Failed to complete pending sale in cloud");
     }
   };
 
@@ -1444,6 +1331,8 @@ const App: React.FC = () => {
           >
             {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </motion.button>
+
+
           <motion.button 
             whileTap={{ scale: 0.9 }}
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -1528,8 +1417,8 @@ const App: React.FC = () => {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-72 p-3 sm:p-6 lg:p-8 pt-16 sm:pt-20 lg:pt-8 pb-24 lg:pb-8 transition-all duration-300">
-        <div className="max-w-7xl mx-auto">
+      <main className="flex-1 lg:ml-72 w-full max-w-full overflow-x-hidden p-2.5 sm:p-6 lg:p-8 pt-16 sm:pt-20 lg:pt-8 pb-28 lg:pb-8 transition-all duration-300 min-h-screen">
+        <div className="max-w-7xl mx-auto w-full">
           <header className="mb-6 lg:mb-8 flex justify-between items-end">
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100">
@@ -1553,7 +1442,7 @@ const App: React.FC = () => {
                 {activeView === 'invoices' && 'Generate custom invoices and receipts.'}
               </p>
             </div>
-            <div className="text-right hidden lg:flex items-center space-x-4">
+            <div className="text-right hidden lg:flex items-center space-x-3">
                <button
                  onClick={() => setIsDarkMode(!isDarkMode)}
                  className="p-2 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-sm border border-slate-200 dark:border-slate-700"
@@ -1606,11 +1495,13 @@ const App: React.FC = () => {
                     {userRole === 'admin' && activeView === 'financials' && <FinancialReport inventory={inventory} sales={sales} pendingSales={pendingSales} currencySymbol="GH₵" />}
                     {userRole === 'admin' && activeView === 'insights' && <AIInsights inventory={inventory} sales={sales} pendingSales={pendingSales} />}
                     {userRole === 'admin' && activeView === 'invoices' && (
-                      <InvoiceReceiptGenerator 
-                        sales={sales} 
-                        pendingSales={pendingSales}
-                        currencySymbol="GH₵" 
-                      />
+                      <ErrorBoundary fallbackTitle="Invoices & Receipts encountered an issue">
+                        <InvoiceReceiptGenerator 
+                          sales={sales} 
+                          pendingSales={pendingSales}
+                          currencySymbol="GH₵" 
+                        />
+                      </ErrorBoundary>
                     )}
                 </Suspense>
              )}
@@ -1663,8 +1554,8 @@ const App: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Mobile Quick Bottom Navigation Bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800/80 text-slate-300 z-30 px-2 py-1.5 flex justify-around items-center shadow-2xl">
+      {/* Mobile Quick Bottom Navigation Bar with Safe Area support */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800/80 text-slate-300 z-30 px-1.5 pt-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom,0.6rem))] flex justify-around items-center shadow-2xl">
         <button 
           onClick={() => { setActiveView('dashboard'); setIsMobileMenuOpen(false); }}
           className={`flex flex-col items-center py-1 px-2.5 rounded-xl text-[10px] font-bold transition-all ${activeView === 'dashboard' ? 'text-indigo-400 bg-indigo-500/15' : 'text-slate-400 hover:text-slate-200'}`}
@@ -1707,5 +1598,7 @@ const App: React.FC = () => {
     </div>
   );
 };
+
+
 
 export default App;

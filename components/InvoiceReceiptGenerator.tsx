@@ -3,6 +3,8 @@ import { SaleRecord, PendingSale } from '../types';
 import { FileText, Printer, Search, Plus, Trash2, MessageCircle, Loader2, X, ExternalLink, Download } from 'lucide-react';
 import logoUrl from '../logo.svg';
 import { exportElementToPdf } from '../utils/pdfGenerator';
+import { Thermal80mmReceiptData } from '../utils/thermal80mmPdfGenerator';
+import { FourBarCodeExportModal } from './FourBarCodeExportModal';
 
 interface InvoiceReceiptGeneratorProps {
   sales: SaleRecord[];
@@ -24,6 +26,8 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
   const [discount, setDiscount] = useState<number>(0);
   const [applyTax, setApplyTax] = useState<boolean>(false);
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
+  const [show4BarCodeModal, setShow4BarCodeModal] = useState<boolean>(false);
+
 
   // Combine sales for searching
   const allSalesCombined = useMemo(() => {
@@ -138,7 +142,57 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
     }
   };
 
-  const handlePrint = () => {
+  const [randomDocSuffix] = useState(() => Math.floor(Math.random() * 899999 + 100000));
+
+  const currentDocNumber = selectedSaleId
+    ? selectedSaleId.slice(-8).toUpperCase()
+    : `${mode === 'invoice' ? 'INV' : 'REC'}-${randomDocSuffix}`;
+
+  const thermalReceiptData = useMemo<Thermal80mmReceiptData>(() => {
+    const formattedDate = documentDate
+      ? new Date(documentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+      : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const nowTime = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+    const safeCurrency = (currencySymbol || 'GH¢').replace(/[\u01B5\u20B5]/g, '¢');
+
+    return {
+      receiptNumber: currentDocNumber,
+      orderNumber: selectedSaleId ? selectedSaleId.slice(-8).toUpperCase() : undefined,
+      dateTime: `${formattedDate} ${nowTime}`,
+      customerName: customerName.trim() || undefined,
+      items: documentItems.map(item => ({
+        description: item.description,
+        quantity: Number(item.quantity) || 1,
+        price: Number(item.price) || 0
+      })),
+      subtotal,
+      discount: discount > 0 ? discount : undefined,
+      tax: taxAmount,
+      taxLabel: applyTax ? 'VAT (20%)' : undefined,
+      grandTotal,
+      currencySymbol: safeCurrency,
+      paymentMethod: 'Cash',
+      paymentStatus: 'paid'
+    };
+  }, [currentDocNumber, selectedSaleId, documentDate, customerName, documentItems, subtotal, discount, taxAmount, applyTax, grandTotal, currencySymbol]);
+
+  const getThermalReceiptData = (): Thermal80mmReceiptData => thermalReceiptData;
+
+  const safeCurrency = (currencySymbol || 'GH¢').replace(/[\u01B5\u20B5]/g, '¢');
+  const formatMoney = (amount: number) => `${safeCurrency}\u00A0${(Number(amount) || 0).toFixed(2)}`;
+
+  const handlePrint = async () => {
+    if (documentItems.length === 0) return;
+
+    // For receipts, open the 80mm Continuous Thermal / 4BarCode Export modal
+    if (mode === 'receipt') {
+      setShow4BarCodeModal(true);
+      return;
+    }
+
+
+    // For invoices, handle printing
     const isIframe = window.self !== window.top;
     if (isIframe) {
       setShowPrintModal(true);
@@ -148,13 +202,11 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
     const printElement = printRef.current;
     if (!printElement) return;
 
-    // Create a temporary container for printing to guarantee compatibility on laptop browsers/iframes
     const printContainer = document.createElement('div');
     printContainer.id = 'print-temp-container';
     printContainer.innerHTML = printElement.innerHTML;
     printContainer.className = printElement.className;
 
-    // Inject styles specifically for printing
     const style = document.createElement('style');
     style.id = 'print-temp-styles';
     style.innerHTML = `
@@ -181,10 +233,8 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
     document.body.appendChild(printContainer);
     document.head.appendChild(style);
 
-    // Trigger standard browser print on the window context
     window.print();
 
-    // Clean up DOM elements after the print dialog closes
     setTimeout(() => {
       const container = document.getElementById('print-temp-container');
       if (container) container.remove();
@@ -211,7 +261,7 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
     const fileName = `${docType}_${safeCustomerName}_${docNumber}.pdf`;
 
     const itemsSummary = documentItems
-      .map(item => `• ${item.quantity}x ${item.description} - ${currencySymbol}${(item.quantity * item.price).toFixed(2)}`)
+      .map(item => `• ${item.quantity}x ${item.description} - ${formatMoney(item.quantity * item.price)}`)
       .join('\n');
 
     const whatsappMessage = `*RAHA SOLDI ENTERPRISE*
@@ -224,7 +274,7 @@ export const InvoiceReceiptGenerator: React.FC<InvoiceReceiptGeneratorProps> = (
 *Items Breakdown:*
 ${itemsSummary}
 
-*Total Amount:* ${currencySymbol}${grandTotal.toFixed(2)}
+*Total Amount:* ${formatMoney(grandTotal)}
 ----------------------------------------
 📍 Adabraka, Adjacent NDC HQ, Accra, Ghana
 📞 0272326845 / 0277317589 / 0208338431
@@ -473,6 +523,7 @@ _Generated via Raha Soldi Enterprise_`;
             </div>
           </div>
         </div>
+
       </div>
 
       {/* Preview Area */}
@@ -501,21 +552,34 @@ _Generated via Raha Soldi Enterprise_`;
               <Download className="w-4 h-4 mr-2" />
               Download PDF
             </button>
-            <button
-              onClick={handlePrint}
-              disabled={documentItems.length === 0}
-              className="w-full sm:w-auto px-3.5 py-2 text-xs sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center font-medium shadow-sm"
-              title="Print document"
-            >
-              <Printer className="w-4 h-4 mr-2" />
-              Print Document
-            </button>
+            {mode === 'receipt' ? (
+              <button
+                onClick={() => setShow4BarCodeModal(true)}
+                disabled={documentItems.length === 0}
+                className="w-full sm:w-auto px-4 py-2 text-xs sm:text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all disabled:opacity-50 flex items-center justify-center font-bold shadow-sm"
+                title="Export 80mm continuous thermal receipt PDF for 4BarCode & Xprinter XP-420B"
+              >
+                <Printer className="w-4 h-4 mr-1.5" />
+                <span>Print Receipt (4BarCode / XP-420B)</span>
+              </button>
+            ) : (
+              <button
+                onClick={handlePrint}
+                disabled={documentItems.length === 0}
+                className="w-full sm:w-auto px-3.5 py-2 text-xs sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center font-medium shadow-sm"
+                title="Print document"
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Print Document
+              </button>
+            )}
+
           </div>
         </div>
 
         {/* Printable Document Canvas */}
         <div className="w-full overflow-x-auto">
-          <div ref={printRef} className="print:block w-full max-w-3xl mx-auto bg-white text-slate-900 p-8 sm:p-12 border border-slate-200 rounded-2xl print:border-0 print:p-0 shadow-sm min-w-0 font-sans flex flex-col justify-between min-h-[960px]">
+          <div ref={printRef} className="print:block w-full max-w-3xl mx-auto bg-white text-slate-900 p-4 sm:p-8 md:p-12 border border-slate-200 rounded-2xl print:border-0 print:p-0 shadow-sm min-w-0 font-sans flex flex-col justify-between min-h-[960px]">
             
             <div>
               {/* DHL/Amazon Corporate Accent Top Strip */}
@@ -587,8 +651,8 @@ _Generated via Raha Soldi Enterprise_`;
                             <td className="py-4 px-4 text-center text-slate-400 font-bold">{idx + 1}</td>
                             <td className="py-4 px-5 font-semibold text-slate-800 break-words">{item.description}</td>
                             <td className="py-4 px-4 text-center font-extrabold text-slate-700">{item.quantity}</td>
-                            <td className="py-4 px-5 text-right font-mono font-medium text-slate-700">{currencySymbol}{item.price.toFixed(2)}</td>
-                            <td className="py-4 px-5 text-right font-mono font-bold text-slate-900">{currencySymbol}{(item.quantity * item.price).toFixed(2)}</td>
+                            <td className="py-4 px-5 text-right font-mono font-medium text-slate-700 whitespace-nowrap">{formatMoney(item.price)}</td>
+                            <td className="py-4 px-5 text-right font-mono font-bold text-slate-900 whitespace-nowrap">{formatMoney(item.quantity * item.price)}</td>
                             <td className="print:hidden text-center pr-2" data-html2canvas-ignore="true">
                               <button onClick={() => handleRemoveItem(idx)} className="text-rose-500 hover:text-rose-700 p-1 transition-colors">
                                 <Trash2 className="w-4 h-4" />
@@ -601,9 +665,9 @@ _Generated via Raha Soldi Enterprise_`;
                   </div>
 
                   {/* Financial Totals & Payment Details 2-Column */}
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-8 items-start mb-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 sm:gap-8 items-start mb-8">
                     {/* Left Column: Terms & Return Policy */}
-                    <div className="sm:col-span-7 space-y-3">
+                    <div className="sm:col-span-6 space-y-3">
                       <div className="text-xs text-slate-500 leading-relaxed space-y-1.5 p-4 bg-slate-50/70 rounded-2xl border border-slate-200/80">
                         <p className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">TERMS & RETURN POLICY:</p>
                         <p>All items supplied are verified against strict quality checks. Eligible exchange or warranty requests accepted within 7 days upon presentation of this original document.</p>
@@ -611,31 +675,31 @@ _Generated via Raha Soldi Enterprise_`;
                     </div>
 
                     {/* Right Column: Calculations Card */}
-                    <div className="sm:col-span-5">
-                      <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-5 sm:p-6 space-y-3 text-xs sm:text-sm">
-                        <div className="flex justify-between text-slate-600 font-medium">
-                          <span>Subtotal:</span>
-                          <span className="font-mono font-bold text-slate-800">{currencySymbol}{subtotal.toFixed(2)}</span>
+                    <div className="sm:col-span-6">
+                      <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-3 text-xs sm:text-sm">
+                        <div className="flex justify-between items-center gap-2 text-slate-600 font-medium">
+                          <span className="shrink-0">Subtotal:</span>
+                          <span className="font-mono font-bold text-slate-800 whitespace-nowrap text-right">{formatMoney(subtotal)}</span>
                         </div>
                         
                         {discount > 0 && (
-                          <div className="flex justify-between text-rose-600 font-medium">
-                            <span>Discount Applied:</span>
-                            <span className="font-mono font-bold">-{currencySymbol}{discount.toFixed(2)}</span>
+                          <div className="flex justify-between items-center gap-2 text-rose-600 font-medium">
+                            <span className="shrink-0">Discount Applied:</span>
+                            <span className="font-mono font-bold whitespace-nowrap text-right">-{formatMoney(discount)}</span>
                           </div>
                         )}
                         
                         {applyTax && (
-                          <div className="flex justify-between text-slate-600 font-medium">
-                            <span>VAT / Tax (20%):</span>
-                            <span className="font-mono font-bold text-slate-800">{currencySymbol}{taxAmount.toFixed(2)}</span>
+                          <div className="flex justify-between items-center gap-2 text-slate-600 font-medium">
+                            <span className="shrink-0">VAT / Tax (20%):</span>
+                            <span className="font-mono font-bold text-slate-800 whitespace-nowrap text-right">{formatMoney(taxAmount)}</span>
                           </div>
                         )}
 
                         <div className="border-t-2 border-slate-900 pt-3 mt-2">
-                          <div className="bg-slate-900 text-white rounded-xl p-4 sm:p-5 flex justify-between items-center shadow-md">
-                            <span className="font-black text-xs sm:text-sm uppercase tracking-wider">TOTAL PAID:</span>
-                            <span className="font-mono text-lg sm:text-xl font-black tracking-tight">{currencySymbol}{grandTotal.toFixed(2)}</span>
+                          <div className="bg-slate-900 text-white rounded-xl px-4 py-3 sm:px-5 sm:py-3.5 flex justify-between items-center gap-2 sm:gap-3 shadow-md">
+                            <span className="font-black text-xs sm:text-sm uppercase tracking-wider whitespace-nowrap shrink-0">TOTAL PAID:</span>
+                            <span className="font-mono text-sm sm:text-base md:text-lg lg:text-xl font-black tracking-tight whitespace-nowrap shrink-0 text-right">{formatMoney(grandTotal)}</span>
                           </div>
                         </div>
                       </div>
@@ -681,11 +745,23 @@ _Generated via Raha Soldi Enterprise_`;
               </div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Print Document</h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-                Since you are viewing this app inside the developer preview iframe, direct print connections may be restricted by your browser.
+                Choose your preferred printing method.
               </p>
             </div>
             
             <div className="space-y-3">
+              <button
+                onClick={() => {
+                  setShowPrintModal(false);
+                  setShow4BarCodeModal(true);
+                }}
+                className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-sm"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Export 80mm Receipt (4BarCode & XP-420B)</span>
+              </button>
+
+
               <button
                 onClick={async () => {
                   setShowPrintModal(false);
@@ -694,7 +770,7 @@ _Generated via Raha Soldi Enterprise_`;
                 className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all shadow-sm"
               >
                 <Download className="w-4 h-4" />
-                <span>Save & Print PDF (Compressed)</span>
+                <span>Save & Print PDF (Standard A4)</span>
               </button>
               
               <button
@@ -707,58 +783,21 @@ _Generated via Raha Soldi Enterprise_`;
                 <ExternalLink className="w-4 h-4" />
                 <span>Open in New Tab to Print</span>
               </button>
-              
-              <button
-                onClick={() => {
-                  setShowPrintModal(false);
-                  setTimeout(() => {
-                    const printElement = printRef.current;
-                    if (!printElement) return;
-                    const printContainer = document.createElement('div');
-                    printContainer.id = 'print-temp-container';
-                    printContainer.innerHTML = printElement.innerHTML;
-                    printContainer.className = printElement.className;
-                    const style = document.createElement('style');
-                    style.id = 'print-temp-styles';
-                    style.innerHTML = `
-                      @media print {
-                        body > *:not(#print-temp-container) {
-                          display: none !important;
-                        }
-                        #print-temp-container {
-                          display: block !important;
-                          position: absolute !important;
-                          left: 0 !important;
-                          top: 0 !important;
-                          width: 100% !important;
-                          background: white !important;
-                          color: black !important;
-                          padding: 24px !important;
-                          margin: 0 !important;
-                          -webkit-print-color-adjust: exact !important;
-                          print-color-adjust: exact !important;
-                        }
-                      }
-                    `;
-                    document.body.appendChild(printContainer);
-                    document.head.appendChild(style);
-                    window.print();
-                    setTimeout(() => {
-                      const container = document.getElementById('print-temp-container');
-                      if (container) container.remove();
-                      const styleTag = document.getElementById('print-temp-styles');
-                      if (styleTag) styleTag.remove();
-                    }, 500);
-                  }, 100);
-                }}
-                className="w-full py-2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-medium transition-colors text-center"
-              >
-                Try direct browser print anyway
-              </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* 80mm Continuous Thermal Receipt Modal (4BarCode & XP-420B) */}
+      <FourBarCodeExportModal
+        isOpen={show4BarCodeModal}
+        onClose={() => setShow4BarCodeModal(false)}
+        receiptData={thermalReceiptData}
+      />
     </div>
   );
 };
+
+export default InvoiceReceiptGenerator;
+
+

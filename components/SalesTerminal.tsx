@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { InventoryItem, SaleItem, SaleRecord, PendingSale } from '../types';
 import { ShoppingCart, Plus, Trash2, CheckCircle, Search, Tag, Clock, User, X, Package, Calculator, Minus, AlertTriangle, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { getCachedImageSync } from '../services/imageCache';
+
 
 interface SalesTerminalProps {
   inventory: InventoryItem[];
@@ -185,16 +185,12 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
 
     setModalWarning(null);
 
-    const nonBase64Image = (selectedProduct.imageUrl && !selectedProduct.imageUrl.startsWith('data:'))
-      ? selectedProduct.imageUrl
-      : undefined;
-
     if (existingItemIndex > -1) {
       const newCart = [...cart];
       newCart[existingItemIndex] = {
         ...newCart[existingItemIndex],
         quantity: newCart[existingItemIndex].quantity + qtyInput,
-        imageUrl: newCart[existingItemIndex].imageUrl || nonBase64Image
+        imageUrl: newCart[existingItemIndex].imageUrl || selectedProduct.imageUrl
       };
       setCart(newCart);
     } else {
@@ -205,7 +201,7 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
         priceAtSale: Number(selectedProduct.salesPrice) || 0,
         costAtSale: Number(selectedProduct.costPrice) || 0,
         discount: 0,
-        imageUrl: nonBase64Image
+        imageUrl: selectedProduct.imageUrl
       };
       setCart([...cart, newItem]);
     }
@@ -241,10 +237,6 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
   const handleCheckout = async () => {
     if (cart.length === 0 || isProcessingSale) return;
     
-    const currentCart = [...cart];
-    const itemsCount = currentCart.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
-    const finalTotal = cartTotal;
-
     setIsProcessingSale(true);
     setCheckoutToast({
       type: 'processing',
@@ -253,8 +245,10 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
 
     try {
       // Deliberate brief tick so transaction progress is perceptible
-      await new Promise(resolve => setTimeout(resolve, 450));
-      const sale = await onCompleteSale(currentCart);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const sale = await onCompleteSale(cart);
+      const itemsCount = cart.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
+      const finalTotal = cartTotal;
 
       setCart([]);
       setSelectedProductId(null);
@@ -495,14 +489,11 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
                 >
                   <div className="flex justify-between items-start mb-2 sm:mb-3">
                     <div className="flex items-center gap-2.5 flex-1 pr-2">
-                      {(() => {
-                        const img = item.imageUrl || (item.itemId ? getCachedImageSync(item.itemId) : undefined);
-                        return img ? (
-                          <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0">
-                            <img src={img} alt={item.name} className="w-full h-full object-cover" />
-                          </div>
-                        ) : null;
-                      })()}
+                      {item.imageUrl && (
+                        <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0">
+                          <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                        </div>
+                      )}
                       <div>
                         <div className="font-bold text-slate-800 dark:text-white text-xs sm:text-base leading-tight mb-0.5">{item.name}</div>
                         <div className="text-[10px] sm:text-sm font-black text-indigo-500/60 uppercase tracking-widest">{item.quantity} units</div>

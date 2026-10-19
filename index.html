@@ -2,11 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
     <title>Raha Soldi Inventory</title>
     <meta name="description" content="A comprehensive sales and inventory management system for Raha Soldi Ent (Ghana), featuring stock tracking, point of sale, and AI-powered business insights." />
     <meta property="og:title" content="Raha Soldi Inventory" />
     <meta property="og:description" content="A comprehensive sales and inventory management system for Raha Soldi Ent (Ghana), featuring stock tracking, point of sale, and AI-powered business insights." />
+    
+    <!-- High-priority DNS prefetch and preconnect for fastest network initialization -->
+    <link rel="preconnect" href="https://nzbiinvwweopegmajfsm.supabase.co" crossorigin />
+    <link rel="dns-prefetch" href="https://nzbiinvwweopegmajfsm.supabase.co" />
+    <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -23,6 +32,22 @@
       }
     </script>
     <style>
+      html, body {
+        overflow-x: hidden;
+        width: 100%;
+        max-width: 100vw;
+        box-sizing: border-box;
+        -webkit-text-size-adjust: 100%;
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      
+      /* Safe area padding utilities for modern smartphones */
+      .safe-bottom {
+        padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0.75rem));
+      }
+      .safe-top {
+        padding-top: env(safe-area-inset-top, 0px);
+      }
       /* Custom scrollbar for webkit */
       ::-webkit-scrollbar {
         width: 6px;

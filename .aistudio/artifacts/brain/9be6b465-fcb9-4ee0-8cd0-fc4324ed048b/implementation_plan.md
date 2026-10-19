@@ -1,122 +1,109 @@
-# Inventory Deletion Fix, Sales Terminal Feedback & Smart Image Compression
+# Bluetooth Receipt Printing for Xprinter XP-420B
 
-Comprehensive resolution for the inventory item deletion failure, sales terminal checkout processing feedback, and client-side image compression for product uploads.
-
-### User Review & Critical Decisions
+A high-reliability, hardware-tested thermal receipt printing engine for the Xprinter XP-420B label printer, enabling direct one-tap Bluetooth printing from Android, iOS (via WebBLE/Bluefy or AirPrint fallback), and desktop browsers without manual downloads.
 
 > [!IMPORTANT]
-> The following architectural and user experience choices were confirmed during Phase 1:
-> - **Product Deletion Flow**: Instant deletion with an Undo toast notification (replaces blocked native `window.confirm` dialogs in the sandbox iframe).
-> - **Sales Terminal Loading & Feedback**: Inline button spinner during checkout processing with a compact bottom banner toast communicating real-time transaction status (processing, success with receipt metadata, or error).
-> - **Image Upload Compression**: Automatic client-side smart compression with an optional quality toggle (Standard vs. High Quality) and visible file reduction telemetry (e.g., `3.8 MB → 190 KB`).
+> **Hardware Configuration Confirmed by User**:
+> - **Connectivity**: Web Bluetooth BLE with cross-platform mobile browser support (Android Chrome, Edge, and iOS WebBLE/Bluefy compatibility + browser thermal print fallback).
+> - **Media**: Continuous thermal receipt roll (configured dynamically for 80mm to 108mm width at 203 DPI, 8 dots/mm, with continuous paper `GAP 0,0` settings).
+> - **Command Architecture**: Native TSPL/TSPL2 command generation (with support for scalable text, clean tabular line items, QR/barcode codes, and canvas bitmap rendering for business logos/accents).
 
 ---
 
-### 1. Overview & Core Concept
+## 1. Overview & Core Concept
 
-This update addresses three key user workflow bottlenecks in the POS & Inventory application:
-1. **Unblocking Product Deletion**: In sandboxed browser iframes, native dialogs like `window.confirm` fail silently or are suppressed, rendering the inventory delete button completely non-functional. Replacing this with an instant deletion pattern backed by a 6-second "Undo" toast provides a seamless, non-blocking administrative experience.
-2. **Sales Terminal Transaction Reliability & Feedback**: Checkout currently lacks visual confirmation of saving, leading to duplicate clicks or uncertainty. Adding an inline button spinner and a compact bottom banner toast delivers immediate tactile confirmation that transactions have been logged.
-3. **Memory Optimization via Smart Image Compression**: Product photos captured via camera or uploaded directly from mobile/desktop cameras often exceed 4–10 MB each, causing browser storage saturation and sluggish UI rendering. Client-side canvas compression automatically shrinks image payloads to under 250 KB without perceptible visual loss, featuring a simple quality toggle.
+The Raha Soldi inventory application currently exports PDF receipts and WhatsApp text summaries. This feature adds a native hardware printing engine targeting the **Xprinter XP-420B (203 DPI 4-inch thermal printer)** via Web Bluetooth BLE:
 
----
-
-### 2. User Experience & Visual Design
-
-#### Key User Flows
-
-1. **Inventory Deletion & Undo**:
-   - User navigates to the Inventory tab and clicks the trash/delete icon on any product row (or mobile card).
-   - The product is immediately removed from the active table view with a soft fade-and-collapse animation.
-   - A floating toast appears at the bottom-right: *"Product '[Name]' deleted"* with a prominent **Undo** button and a subtle 6-second progress bar.
-   - If **Undo** is clicked, the product returns immediately to its original position without reloading.
-   - If the timer lapses or the user closes the toast, deletion is permanently committed.
-
-2. **Sales Terminal Checkout Processing**:
-   - Cashier builds a cart in the Sales Terminal and clicks **Complete Sale**.
-   - The button instantly disables and shows a spinning indicator with label *"Processing..."*.
-   - A compact, polished bottom banner toast animates up with a gentle pulse: *"Saving transaction..."*.
-   - Once saved (600ms realistic async save), the bottom banner turns to emerald green with an animated checkmark: *"Transaction #TX-XXXX completed · [Total Amount]"*.
-   - The cart resets, and the cashier can immediately begin the next sale while the confirmation remains briefly visible.
-
-3. **Smart Image Upload & Compression**:
-   - In the Add/Edit Product modal, user uploads an image or captures one via webcam.
-   - Automatic compression runs instantly in a Web Worker / Canvas pipeline.
-   - A compact metadata bar shows: *"Original: 3.4 MB → Compressed: 185 KB (95% smaller)"*.
-   - A subtle Quality switch allows toggling between **Standard (Balanced)** and **High Fidelity (Max Clarity)**.
-
-#### Visual Identity & Theme
-- **Color Tokens**:
-  - Background: Clean neutral canvas (`bg-neutral-50` / `dark:bg-neutral-900`)
-  - Accent / Primary: Deep indigo/blue (`bg-indigo-600` / `hover:bg-indigo-700`)
-  - Status Success: Emerald (`text-emerald-700 bg-emerald-50 border-emerald-200`)
-  - Status Alert/Undo: Charcoal with amber/emerald accents (`bg-neutral-900 text-white`)
-- **Typography**: Clean sans (`Plus Jakarta Sans` / `DM Sans`), with strict tabular numerals (`font-mono tabular-nums`) for currency amounts and file size badges.
-- **Zero-Pill Restraint**: File statistics, prices, and status messages presented with clean typographic separators and subtle borders, avoiding bubbly pill clutter.
+- **Instant POS Printing**: Cashiers complete a sale in the Sales Terminal and print a receipt directly with zero intermediate file downloads.
+- **Historic & Pending Orders**: Receipts can be reprinted anytime from Sales History or Invoice Generator.
+- **Zero-Waste Formatting**: Formatted specifically for continuous thermal rolls (or die-cut labels), eliminating blank margins and awkward page breaks.
+- **Resilient Dual-Engine Fallback**: Direct Web Bluetooth TSPL stream for supported browsers; automated 80mm/100mm CSS thermal print fallback for standard iOS Safari where Web Bluetooth is restricted by Apple.
 
 ---
 
-### 3. Key Product Decisions & Trade-Offs
+## 2. User Experience & Visual Design
 
-- **Instant Deletion with Undo Toast vs. Confirmation Modal**:
-  - *Chosen*: Instant deletion with an Undo toast.
-  - *Why*: Eliminates friction for inventory managers managing multiple products while guaranteeing recovery for accidental clicks; completely bypasses iframe sandbox restrictions that broke `window.confirm`.
-  - *Alternative Rejected*: Standard pop-up modal requiring extra clicks on every single item deletion.
+### Key User Flows
+1. **Printer Pairing & Status**:
+   - Cashiers tap the **Printer Status Icon** in the application header or POS toolbar (shows `Disconnected`, `Connecting`, `Connected: XP-420B`, or `Printing`).
+   - Tapping opens the **Thermal Printer Settings Drawer/Modal**:
+     - Auto-scan & connect via Web Bluetooth.
+     - Live signal & battery/status indicator.
+     - Media settings: Roll width (80mm / 100mm / 108mm), Media mode (Continuous Roll vs Die-Cut Label), Print Density (1 to 15, default 8).
+     - One-tap **Test Print** to verify paper alignment and font rendering.
+     - Remembers previously paired printer ID in `localStorage` for rapid reconnects.
+2. **Checkout Print Flow**:
+   - In `SalesTerminal`, after completing a checkout or deferring a sale, the success notification presents a prominent **Print Receipt** action.
+   - If connected, it streams directly via Bluetooth in ~1.2 seconds with a progress spinner.
+   - If disconnected, it prompts with a quick-connect modal or 1-tap browser print fallback.
+3. **Sales History & Invoicing Reprints**:
+   - Every completed or pending sale card in `SalesHistory` includes a **Print Receipt** action.
+   - In `InvoiceReceiptGenerator`, a **Print via XP-420B** button is added beside WhatsApp & PDF actions.
 
-- **Bottom Banner Toast vs. Fullscreen Overlay**:
-  - *Chosen*: Compact bottom banner toast with inline button spinner.
-  - *Why*: Fullscreen loading overlays lock the entire viewport and feel heavy-handed for sub-second POS transactions. The bottom banner communicates state clearly while keeping the register responsive.
-  - *Alternative Rejected*: Full-screen modal spinner.
-
-- **Client-Side Canvas/WebP Compression vs. Uncompressed Upload**:
-  - *Chosen*: Automatic client-side Canvas compression with standard fallback (JPEG/WebP) and optional high-quality toggle.
-  - *Why*: Storing multi-megabyte base64 strings in browser storage (`localStorage` / IndexedDB) quickly throws `QuotaExceededError`. Compressing at ingestion keeps total application memory footprint lightweight and avoids white screens.
+### Receipt Layout Spec (XP-420B @ 203 DPI)
+- **Header**: Store name (`RAHA SOLDI ENTERPRISE`), location (`Adabraka, Accra, Ghana`), and official contact phone numbers.
+- **Transaction Metadata**: Receipt #, Order ID, Date/Time, Cashier name, and Customer name (if assigned).
+- **Line Items**: Clean tabular layout with quantity, item name (with word-wrap for long titles), unit price, and line totals in Ghana Cedis (`GH₵`).
+- **Financial Totals**: Subtotal, discount deduction, VAT/tax (if applied), and bold Grand Total.
+- **Footer**: Payment method/status, return policy, and a clean transaction QR/Barcode.
 
 ---
 
-### 4. Technical Architecture & Data Strategy
+## 3. Key Product Decisions & Trade-Offs
+
+| Decision | Chosen Approach | Rationale | Alternatives Considered |
+|---|---|---|---|
+| **Bluetooth Protocol** | Web Bluetooth BLE with multi-service UUID discovery | Native browser execution without installing local native background servers or external APKs on Android. | Bluetooth Classic SPP (requires external native Android app bridge). |
+| **Command Protocol** | Native TSPL/TSPL2 (`SIZE`, `GAP 0,0`, `CLS`, `TEXT`, `PRINT 1,1`) | Native language of the XP-420B chipset. Produces crisp 203 DPI typography, precise dot-level spacing, and zero page waste. | ESC/POS emulation (inconsistent label feed on 4-inch label printers). |
+| **iOS Compatibility** | Dual-Path: WebBLE / Bluefy browser support + Optimized CSS Thermal Print Fallback | iOS Safari prohibits Web Bluetooth. Bluefy/WebBLE enables full BLE, while CSS `@media print` formatted for 80/100mm rolls covers standard Safari via AirPrint. | Rejecting iOS entirely (bad user experience for iPhone/iPad cashiers). |
+| **BLE Packet Slicing** | 64-byte chunked writes with 20ms pacing | XP-420B BLE modules drop packets if whole print jobs (>1KB) are pushed in a single synchronous write. | Unchunked writes (causes buffer overflow and incomplete receipts). |
+
+---
+
+## 4. Technical Architecture & Data Strategy
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                       App Container                         │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │  State: inventory, cart, transactions, undoQueue      │  │
-│  └───────────────────────────┬───────────────────────────┘  │
-│                              │                              │
-│       ┌──────────────────────┴──────────────────────┐       │
-│       ▼                                             ▼       │
-│  ┌─────────────────────────┐          ┌──────────────────┐  │
-│  │   InventoryManager      │          │   SalesTerminal  │  │
-│  │  - Instant delete trigger│         │  - Checkout flow │  │
-│  │  - Item edit & add      │          │  - Inline spinner│  │
-│  │  - ProductImageCapture  │          │  - Bottom toast  │  │
-│  └────────────┬────────────┘          └─────────┬────────┘  │
-│               │                                 │           │
-│               ▼                                 ▼           │
-│  ┌─────────────────────────┐          ┌──────────────────┐  │
-│  │ Image Compressor Engine │          │  Toast Feedback  │  │
-│  │ - Canvas downsampling   │          │  - Undo product  │  │
-│  │ - 85% / 95% quality     │          │  - TX success    │  │
-│  │ - Size delta telemetry  │          │  - TX failure    │  │
-│  └─────────────────────────┘          └──────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                        Raha Soldi React UI                             │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌───────────────────────┐ │
+│  │  SalesTerminal   │  │   SalesHistory   │  │InvoiceReceiptGenerator│ │
+│  └────────┬─────────┘  └────────┬─────────┘  └───────────┬───────────┘ │
+│           │                     │                        │             │
+│           └─────────────────────┼────────────────────────┘             │
+│                                 ▼                                      │
+│               ┌───────────────────────────────────┐                    │
+│               │   usePrinter / PrinterContext     │                    │
+│               │ - Connection State & Device Info  │                    │
+│               │ - Settings (80/100mm, Density)    │                    │
+│               │ - Mutex Lock (prevents duplicates)│                    │
+│               └─────────────────┬─────────────────┘                    │
+└─────────────────────────────────┼──────────────────────────────────────┘
+                                  ▼
+        ┌───────────────────────────────────────────────────┐
+        │        Printer Engine (services/printer/)         │
+        ├─────────────────────────┬─────────────────────────┤
+        │  tsplGenerator.ts       │  blePrinterService.ts   │
+        │  - Formats receipts     │  - Web Bluetooth GATT   │
+        │  - Word-wrap line items │  - Service UUID scanner │
+        │  - Calculates heights   │  - MTU chunked writer   │
+        │  - Generates TSPL binary│  - Disconnect listener  │
+        └─────────────────────────┴─────────────────────────┘
+                                  │
+                                  ▼
+                   ┌───────────────────────────────┐
+                   │    Xprinter XP-420B (BLE)     │
+                   │    - 203 DPI Continuous Roll  │
+                   │    - Direct Hardware Printing │
+                   └───────────────────────────────┘
 ```
 
-#### Component & State Implementation Details
-
-1. **`App.tsx` & `InventoryManager.tsx` (Delete Fix & Undo)**:
-   - Remove `window.confirm` entirely.
-   - Maintain a temporary `pendingDeletion` state with a 6-second timeout.
-   - Render a fixed bottom Toast container with an "Undo" action button.
-   - If Undo is triggered, cancel the timeout and restore the item immediately.
-
-2. **`SalesTerminal.tsx` (Checkout Loading & Feedback)**:
-   - Add `isProcessingSale: boolean` state.
-   - On clicking complete sale, set `isProcessingSale = true`, trigger an async transaction simulation (600ms) to ensure state commits.
-   - Display inline SVG spinner inside the checkout button.
-   - Render a smooth bottom banner toast showing processing progress, transitioning to emerald success or rose error.
-
-3. **`utils/imageCompressor.ts` & `components/ProductImageCapture.tsx` (Smart Compression)**:
-   - Enhance the image compression utility to accept quality modes (`standard`: 800px max, 0.78 quality vs. `high`: 1200px max, 0.88 quality).
-   - Return original file size, compressed file size, and percentage saved.
-   - Add an inline quality toggle in `ProductImageCapture` and display compression telemetry.
+### Components to Create & Update:
+1. `services/printer/tsplGenerator.ts`: Generates TSPL2 byte commands for continuous 80mm-108mm receipts, order headers, itemized grids, totals, and barcodes.
+2. `services/printer/blePrinterService.ts`: Web Bluetooth driver with known Xprinter GATT services (`0xFF00`, `0xFEE7`, `0x18F0`, `49535343-...`, Nordic UART), connection management, MTU chunking, and error recovery.
+3. `services/printer/types.ts`: Printer config, status types, and connection interfaces.
+4. `components/PrinterSettingsModal.tsx`: Modern, anti-slop printer drawer to scan, test-print, adjust paper width/density, and view BLE telemetry.
+5. Integration into:
+   - `App.tsx`: Header printer status icon + global printer context/hook.
+   - `components/SalesTerminal.tsx`: Post-checkout 1-tap print receipt.
+   - `components/SalesHistory.tsx`: Row-level and modal receipt printing.
+   - `components/InvoiceReceiptGenerator.tsx`: Bluetooth thermal print button.
