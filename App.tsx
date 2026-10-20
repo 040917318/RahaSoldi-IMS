@@ -270,10 +270,15 @@ const App: React.FC = () => {
 
   // Load Cached Data on Mount
   useEffect(() => {
+    // Proactively purge old base64 images stored in localStorage to free up browser storage quota
+    try {
+      localStorage.removeItem('raha_local_images');
+    } catch {}
+
     const loadLocal = (key: string, setter: any) => {
-        const local = localStorage.getItem(key);
-        if(local) {
-          try {
+        try {
+          const local = localStorage.getItem(key);
+          if (local) {
             const parsed = JSON.parse(local);
             if (key === 'inventory') {
               initImageCache(parsed);
@@ -281,9 +286,9 @@ const App: React.FC = () => {
             } else {
               setter(parsed);
             }
-          } catch (e) {
-            console.error(`Error loading cached ${key}:`, e);
           }
+        } catch (e) {
+          console.error(`Error loading cached ${key}:`, e);
         }
     };
     loadLocal('inventory', setInventory);
@@ -292,21 +297,95 @@ const App: React.FC = () => {
     loadLocal('auditLogs', setAuditLogs);
     
     // Check pending actions
-    const queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
-    setPendingActions(queue.length);
+    try {
+      const queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+      setPendingActions(queue.length);
+    } catch {
+      setPendingActions(0);
+    }
   }, []);
 
-  // Persist Helper
+  // Safe Persist Helper with automatic quota protection and fallback
   const persist = (key: string, data: any) => {
-      localStorage.setItem(key, JSON.stringify(data));
+    try {
+      let payload = data;
+      // Strip base64 data strings from stored objects to prevent exceeding the browser's 5MB localStorage quota
+      if (key === 'inventory' && Array.isArray(data)) {
+        payload = data.map(item => ({
+          ...item,
+          imageUrl: (item.imageUrl && !item.imageUrl.startsWith('data:')) ? item.imageUrl : undefined
+        }));
+      } else if (key === 'sales' && Array.isArray(data)) {
+        // Cache the latest 100 sales locally (full records stay in memory and Supabase)
+        payload = data.slice(0, 100).map(s => ({
+          ...s,
+          items: Array.isArray(s.items) ? s.items.map((i: any) => ({
+            ...i,
+            imageUrl: (i.imageUrl && !i.imageUrl.startsWith('data:')) ? i.imageUrl : undefined
+          })) : []
+        }));
+      } else if (key === 'pendingSales' && Array.isArray(data)) {
+        payload = data.map(s => ({
+          ...s,
+          items: Array.isArray(s.items) ? s.items.map((i: any) => ({
+            ...i,
+            imageUrl: (i.imageUrl && !i.imageUrl.startsWith('data:')) ? i.imageUrl : undefined
+          })) : []
+        }));
+      } else if (key === 'auditLogs' && Array.isArray(data)) {
+        payload = data.slice(0, 50);
+      }
+
+      localStorage.setItem(key, JSON.stringify(payload));
+    } catch (e) {
+      console.warn(`[Storage] Quota warning writing key "${key}". Running emergency cleanup...`, e);
+      try {
+        localStorage.removeItem('raha_local_images');
+        localStorage.removeItem('invoice_generator_draft');
+        localStorage.removeItem('pos_cart_draft');
+        // If it's sales, store an ultra-compact version
+        if (key === 'sales' && Array.isArray(data)) {
+          const compact = data.slice(0, 25).map(s => ({
+            id: s.id,
+            timestamp: s.timestamp,
+            totalAmount: s.totalAmount,
+            totalProfit: s.totalProfit,
+            recordedBy: s.recordedBy,
+            items: (s.items || []).map((i: any) => ({
+              itemId: i.itemId,
+              name: i.name,
+              quantity: i.quantity,
+              priceAtSale: i.priceAtSale,
+              costAtSale: i.costAtSale,
+              discount: i.discount
+            }))
+          }));
+          localStorage.setItem('sales', JSON.stringify(compact));
+        }
+      } catch (cleanupErr) {
+        console.warn('[Storage] Graceful fallback: state preserved in React memory & cloud.', cleanupErr);
+      }
+      // Never rethrow - transaction must succeed in state and DB
+    }
   };
 
-  // Queue Action Helper
+  // Queue Action Helper with Quota Protection
   const queueAction = (action: any) => {
-    const queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
-    queue.push(action);
-    localStorage.setItem('offlineQueue', JSON.stringify(queue));
-    setPendingActions(queue.length);
+    try {
+      const queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+      // Strip any base64 images from payload before queuing to keep offlineQueue lightweight
+      const sanitizedAction = JSON.parse(JSON.stringify(action, (key, value) => {
+        if (key === 'imageUrl' && typeof value === 'string' && value.startsWith('data:')) {
+          return undefined;
+        }
+        return value;
+      }));
+      queue.push(sanitizedAction);
+      localStorage.setItem('offlineQueue', JSON.stringify(queue));
+      setPendingActions(queue.length);
+    } catch (e) {
+      console.warn("Failed to queue offline action to localStorage:", e);
+    }
   };
 
   // Process Offline Queue (Sync)
@@ -842,12 +921,18 @@ const App: React.FC = () => {
   };
 
   const handleCompleteSale = async (items: SaleItem[]): Promise<SaleRecord> => {
-    const totalAmount = items.reduce((sum, item) => sum + ((item.quantity * item.priceAtSale) - (item.discount || 0)), 0);
-    const totalCost = items.reduce((sum, item) => sum + (item.quantity * item.costAtSale), 0);
+    // Sanitize items: strip any data: base64 URLs so sales records remain lightweight and never cause quota or payload overflows
+    const sanitizedItems: SaleItem[] = items.map(item => ({
+      ...item,
+      imageUrl: (item.imageUrl && !item.imageUrl.startsWith('data:')) ? item.imageUrl : undefined
+    }));
+
+    const totalAmount = sanitizedItems.reduce((sum, item) => sum + ((item.quantity * item.priceAtSale) - (item.discount || 0)), 0);
+    const totalCost = sanitizedItems.reduce((sum, item) => sum + (item.quantity * item.costAtSale), 0);
     
     const newSale: SaleRecord = {
       id: crypto.randomUUID(),
-      items,
+      items: sanitizedItems,
       totalAmount,
       totalProfit: totalAmount - totalCost,
       recordedBy: session?.user?.email || 'Unknown',
@@ -916,13 +1001,19 @@ const App: React.FC = () => {
   };
 
   const handleDeferSale = async (items: SaleItem[], customerName: string, notes: string): Promise<PendingSale> => {
-    const totalAmount = items.reduce((sum, item) => sum + ((item.quantity * item.priceAtSale) - (item.discount || 0)), 0);
-    const totalCost = items.reduce((sum, item) => sum + (item.quantity * item.costAtSale), 0);
+    // Sanitize items: strip any data: base64 URLs so pending sales records remain lightweight
+    const sanitizedItems: SaleItem[] = items.map(item => ({
+      ...item,
+      imageUrl: (item.imageUrl && !item.imageUrl.startsWith('data:')) ? item.imageUrl : undefined
+    }));
+
+    const totalAmount = sanitizedItems.reduce((sum, item) => sum + ((item.quantity * item.priceAtSale) - (item.discount || 0)), 0);
+    const totalCost = sanitizedItems.reduce((sum, item) => sum + (item.quantity * item.costAtSale), 0);
     
     const pendingSale: PendingSale = {
       id: crypto.randomUUID(),
       customerName,
-      items,
+      items: sanitizedItems,
       totalAmount,
       totalProfit: totalAmount - totalCost,
       recordedBy: session?.user?.email || 'Unknown',

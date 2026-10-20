@@ -55,7 +55,7 @@ export async function initImageCache(initialItems?: InventoryItem[]): Promise<vo
     }
   }
 
-  // Check localStorage for emergency backups
+  // Check localStorage for any legacy backups, migrate to memory/IndexedDB, then purge to free localStorage quota
   try {
     const rawLocal = localStorage.getItem('raha_local_images');
     if (rawLocal) {
@@ -65,9 +65,12 @@ export async function initImageCache(initialItems?: InventoryItem[]): Promise<vo
           memoryImageCache.set(id, img);
         }
       });
+      // Purge legacy local storage key to immediately prevent QuotaExceededError
+      localStorage.removeItem('raha_local_images');
     }
   } catch (err) {
-    console.warn('[ImageCache] Error parsing localStorage backup:', err);
+    console.warn('[ImageCache] Error migrating legacy localStorage backup:', err);
+    try { localStorage.removeItem('raha_local_images'); } catch {}
   }
 
   // Load all images from IndexedDB
@@ -87,7 +90,7 @@ export async function initImageCache(initialItems?: InventoryItem[]): Promise<vo
       isInitialized = true;
     };
   } catch (err) {
-    console.warn('[ImageCache] IndexedDB unavailable, continuing with memory & localStorage cache:', err);
+    console.warn('[ImageCache] IndexedDB unavailable, continuing with memory cache:', err);
     isInitialized = true;
   }
 }
@@ -101,15 +104,16 @@ export function getCachedImageSync(itemId: string): string | undefined {
 }
 
 /**
- * Save an image to IndexedDB, memory cache, and localStorage backup
+ * Save an image to IndexedDB and memory cache.
+ * Note: Base64 images are intentionally NOT stored in localStorage to prevent QuotaExceededError.
  */
 export async function saveCachedImage(itemId: string, imageUrl: string): Promise<void> {
   if (!itemId || !imageUrl) return;
 
-  // 1. Update memory cache immediately
+  // 1. Update memory cache immediately for instantaneous synchronous UI display
   memoryImageCache.set(itemId, imageUrl);
 
-  // 2. Persist to IndexedDB
+  // 2. Persist to IndexedDB (asynchronous high-capacity storage)
   try {
     const db = await openImageDb();
     const transaction = db.transaction(STORE_NAME, 'readwrite');
@@ -121,22 +125,6 @@ export async function saveCachedImage(itemId: string, imageUrl: string): Promise
     });
   } catch (err) {
     console.warn('[ImageCache] Failed to save to IndexedDB:', err);
-  }
-
-  // 3. Persist compact copy to localStorage for resilience (capped to latest 30 images to prevent quota overflow)
-  try {
-    const rawLocal = localStorage.getItem('raha_local_images');
-    const map = rawLocal ? JSON.parse(rawLocal) : {};
-    map[itemId] = imageUrl;
-
-    const keys = Object.keys(map);
-    if (keys.length > 30) {
-      // Keep most recent entries
-      delete map[keys[0]];
-    }
-    localStorage.setItem('raha_local_images', JSON.stringify(map));
-  } catch {
-    // If localStorage quota exceeded, IndexedDB is already saved
   }
 }
 
@@ -157,15 +145,8 @@ export async function removeCachedImage(itemId: string): Promise<void> {
   }
 
   try {
-    const rawLocal = localStorage.getItem('raha_local_images');
-    if (rawLocal) {
-      const map = JSON.parse(rawLocal);
-      delete map[itemId];
-      localStorage.setItem('raha_local_images', JSON.stringify(map));
-    }
-  } catch {
-    // Ignore
-  }
+    localStorage.removeItem('raha_local_images');
+  } catch {}
 }
 
 /**

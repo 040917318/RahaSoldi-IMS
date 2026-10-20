@@ -187,13 +187,15 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
 
     if (existingItemIndex > -1) {
       const newCart = [...cart];
+      const cleanImg = (selectedProduct.imageUrl && !selectedProduct.imageUrl.startsWith('data:')) ? selectedProduct.imageUrl : undefined;
       newCart[existingItemIndex] = {
         ...newCart[existingItemIndex],
         quantity: newCart[existingItemIndex].quantity + qtyInput,
-        imageUrl: newCart[existingItemIndex].imageUrl || selectedProduct.imageUrl
+        imageUrl: newCart[existingItemIndex].imageUrl || cleanImg
       };
       setCart(newCart);
     } else {
+      const cleanImg = (selectedProduct.imageUrl && !selectedProduct.imageUrl.startsWith('data:')) ? selectedProduct.imageUrl : undefined;
       const newItem: SaleItem = {
         itemId: selectedProduct.id,
         name: selectedProduct.name,
@@ -201,7 +203,7 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
         priceAtSale: Number(selectedProduct.salesPrice) || 0,
         costAtSale: Number(selectedProduct.costPrice) || 0,
         discount: 0,
-        imageUrl: selectedProduct.imageUrl
+        imageUrl: cleanImg
       };
       setCart([...cart, newItem]);
     }
@@ -268,9 +270,13 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
       }, 5000);
     } catch (err: any) {
       console.error('Checkout error:', err);
+      let errorMsg = err?.message || 'Failed to save transaction. Please check connection and retry.';
+      if (errorMsg.includes('QuotaExceeded') || errorMsg.includes('quota') || errorMsg.includes('setItem')) {
+        errorMsg = 'Storage limit reached. Older cache cleared automatically. Please tap Complete Sale again.';
+      }
       setCheckoutToast({
         type: 'error',
-        message: err?.message || 'Failed to save transaction. Please check connection and retry.'
+        message: errorMsg
       });
     } finally {
       setIsProcessingSale(false);
@@ -308,9 +314,13 @@ export const SalesTerminal: React.FC<SalesTerminalProps> = ({ inventory, onCompl
       }, 5000);
     } catch (err: any) {
       console.error('Defer error:', err);
+      let errorMsg = err?.message || 'Failed to record deferred sale.';
+      if (errorMsg.includes('QuotaExceeded') || errorMsg.includes('quota') || errorMsg.includes('setItem')) {
+        errorMsg = 'Storage limit reached. Older cache cleared automatically. Please tap Defer again.';
+      }
       setCheckoutToast({
         type: 'error',
-        message: err?.message || 'Failed to record deferred sale.'
+        message: errorMsg
       });
     } finally {
       setIsProcessingSale(false);
